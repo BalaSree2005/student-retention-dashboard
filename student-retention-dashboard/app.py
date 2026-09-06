@@ -409,52 +409,104 @@ def start_crew(department_name):
         }
     }
 
-    response = requests.post(
-        KICKOFF_URL,
-        json=data,
-        headers=HEADERS,
-        timeout=30
-    )
+    try:
 
-    response.raise_for_status()
-
-    return response.json()["kickoff_id"]
-
-
-def check_status(kickoff_id):
-
-    max_attempts = 60
-
-    for _ in range(max_attempts):
-
-        response = requests.get(
-            f"{STATUS_URL}/{kickoff_id}",
+        response = requests.post(
+            KICKOFF_URL,
+            json=data,
             headers=HEADERS,
-            timeout=30
+            timeout=120
         )
 
         response.raise_for_status()
 
         result = response.json()
 
-        if result.get("state") == "SUCCESS":
+        if "kickoff_id" not in result:
 
-            return result.get(
-                "result",
-                "No output returned from CrewAI."
+            raise Exception(
+                f"CrewAI response did not contain kickoff_id: "
+                f"{result}"
             )
 
-        elif result.get("state") == "FAILED":
+        return result["kickoff_id"]
 
-            return "CrewAI execution failed."
+    except requests.exceptions.Timeout:
 
-        time.sleep(2)
+        raise Exception(
+            "CrewAI server took more than 120 seconds "
+            "to respond to the kickoff request."
+        )
+
+    except requests.exceptions.ConnectionError:
+
+        raise Exception(
+            "Could not connect to the CrewAI server."
+        )
+
+    except requests.exceptions.HTTPError as e:
+
+        raise Exception(
+            f"CrewAI HTTP error: {e}"
+        )
+
+    except Exception as e:
+
+        raise Exception(
+            f"CrewAI kickoff failed: {e}"
+        )
+
+
+def check_status(kickoff_id):
+
+    max_attempts = 90
+
+    for _ in range(max_attempts):
+
+        try:
+
+            response = requests.get(
+                f"{STATUS_URL}/{kickoff_id}",
+                headers=HEADERS,
+                timeout=60
+            )
+
+            response.raise_for_status()
+
+            result = response.json()
+
+            state = result.get("state")
+
+            if state == "SUCCESS":
+
+                return result.get(
+                    "result",
+                    "No output returned from CrewAI."
+                )
+
+            elif state == "FAILED":
+
+                return (
+                    "CrewAI execution failed."
+                )
+
+            time.sleep(2)
+
+        except requests.exceptions.Timeout:
+
+            # Continue checking instead of immediately failing
+            continue
+
+        except Exception as e:
+
+            return (
+                f"CrewAI status check failed: {e}"
+            )
 
     return (
-        "CrewAI analysis timed out. "
-        "Please try again."
+        "CrewAI analysis timed out after "
+        "approximately 3 minutes."
     )
-
 
 # ============================================================
 # TEXT CLEANING HELPERS
