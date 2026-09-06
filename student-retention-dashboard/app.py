@@ -199,6 +199,12 @@ st.html("""
     line-height: 1.55;
 }
 
+.insight-text {
+    color: #475467;
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+
 .assessment-card {
     background: #eef4ff;
     border: 1px solid #c7d7fe;
@@ -243,12 +249,14 @@ st.html("""
     color: #344054;
     font-size: 0.98rem;
     font-weight: 700;
+    margin-top: 0.7rem;
 }
 
 .strategy-text {
     color: #475467;
     font-size: 0.9rem;
     line-height: 1.6;
+    margin-top: 0.25rem;
 }
 
 .download-card {
@@ -291,13 +299,22 @@ st.html("""
 # ============================================================
 
 try:
-    os.environ["CREWAI_BEARER_TOKEN"] = st.secrets["CREWAI_BEARER_TOKEN"]
-    os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
+
+    os.environ["CREWAI_BEARER_TOKEN"] = (
+        st.secrets["CREWAI_BEARER_TOKEN"]
+    )
+
+    os.environ["GOOGLE_API_KEY"] = (
+        st.secrets["GOOGLE_API_KEY"]
+    )
 
 except Exception:
+
     st.error(
-        "⚠️ API keys are not configured correctly in Streamlit Secrets."
+        "⚠️ API keys are not configured correctly in "
+        "Streamlit Secrets."
     )
+
     st.stop()
 
 
@@ -313,7 +330,9 @@ KICKOFF_URL = f"{BASE_URL}/kickoff"
 STATUS_URL = f"{BASE_URL}/status"
 
 HEADERS = {
-    "Authorization": f"Bearer {os.environ['CREWAI_BEARER_TOKEN']}",
+    "Authorization": (
+        f"Bearer {os.environ['CREWAI_BEARER_TOKEN']}"
+    ),
     "Content-Type": "application/json"
 }
 
@@ -419,17 +438,22 @@ def check_status(kickoff_id):
         result = response.json()
 
         if result.get("state") == "SUCCESS":
+
             return result.get(
                 "result",
                 "No output returned from CrewAI."
             )
 
         elif result.get("state") == "FAILED":
+
             return "CrewAI execution failed."
 
         time.sleep(2)
 
-    return "CrewAI analysis timed out. Please try again."
+    return (
+        "CrewAI analysis timed out. "
+        "Please try again."
+    )
 
 
 # ============================================================
@@ -437,14 +461,34 @@ def check_status(kickoff_id):
 # ============================================================
 
 def clean_text(text):
+
     """Remove markdown formatting for cleaner display."""
 
     text = str(text)
 
-    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
-    text = re.sub(r"\*(.*?)\*", r"\1", text)
-    text = re.sub(r"__(.*?)__", r"\1", text)
-    text = re.sub(r"`(.*?)`", r"\1", text)
+    text = re.sub(
+        r"\*\*(.*?)\*\*",
+        r"\1",
+        text
+    )
+
+    text = re.sub(
+        r"\*(.*?)\*",
+        r"\1",
+        text
+    )
+
+    text = re.sub(
+        r"__(.*?)__",
+        r"\1",
+        text
+    )
+
+    text = re.sub(
+        r"`(.*?)`",
+        r"\1",
+        text
+    )
 
     return text.strip()
 
@@ -460,7 +504,7 @@ def split_gemini_sections(text):
 
     current = None
 
-    for line in text.splitlines():
+    for line in str(text).splitlines():
 
         line = line.strip()
 
@@ -496,7 +540,7 @@ def extract_bullets(text):
 
     items = []
 
-    for line in text.splitlines():
+    for line in str(text).splitlines():
 
         line = line.strip()
 
@@ -504,21 +548,38 @@ def extract_bullets(text):
             continue
 
         if line.startswith("- "):
-            items.append(clean_text(line[2:]))
+
+            items.append(
+                clean_text(line[2:])
+            )
 
         elif line.startswith("* "):
-            items.append(clean_text(line[2:]))
 
-        elif re.match(r"^\d+[\.\)]\s+", line):
+            items.append(
+                clean_text(line[2:])
+            )
+
+        elif re.match(
+            r"^\d+[\.\)]\s+",
+            line
+        ):
+
             item = re.sub(
                 r"^\d+[\.\)]\s+",
                 "",
                 line
             )
-            items.append(clean_text(item))
+
+            items.append(
+                clean_text(item)
+            )
 
     return items
 
+
+# ============================================================
+# GEMINI OUTPUT RENDERING
+# ============================================================
 
 def render_gemini_output(text):
 
@@ -528,9 +589,10 @@ def render_gemini_output(text):
     # KEY STRENGTHS
     # --------------------------------------------------------
 
-    st.markdown(
-        '<div class="section-heading">🌟 Key Strengths</div>',
-        unsafe_allow_html=True
+    st.html(
+        '<div class="section-heading">'
+        '🌟 Key Strengths'
+        '</div>'
     )
 
     strengths = extract_bullets(
@@ -541,31 +603,38 @@ def render_gemini_output(text):
 
         for strength in strengths:
 
-            st.markdown(
+            st.html(
                 f"""
                 <div class="strength-card">
+
                     <div class="strength-title">
                         ✓ Positive Indicator
                     </div>
+
                     <div class="insight-text">
                         {escape(strength)}
                     </div>
+
                 </div>
-                """,
-                unsafe_allow_html=True
+                """
             )
 
     else:
 
-        st.markdown(
+        st.html(
             f"""
             <div class="strength-card">
+
                 <div class="insight-text">
-                    {escape(clean_text(sections["Key Strengths"]))}
+                    {escape(
+                        clean_text(
+                            sections["Key Strengths"]
+                        )
+                    )}
                 </div>
+
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
 
@@ -573,9 +642,10 @@ def render_gemini_output(text):
     # KEY RISKS
     # --------------------------------------------------------
 
-    st.markdown(
-        '<div class="section-heading">⚠️ Key Risks</div>',
-        unsafe_allow_html=True
+    st.html(
+        '<div class="section-heading">'
+        '⚠️ Key Risks'
+        '</div>'
     )
 
     risks = extract_bullets(
@@ -584,33 +654,43 @@ def render_gemini_output(text):
 
     if risks:
 
-        for index, risk in enumerate(risks, 1):
+        for index, risk in enumerate(
+            risks,
+            1
+        ):
 
-            st.markdown(
+            st.html(
                 f"""
                 <div class="risk-card">
+
                     <div class="risk-title">
                         Risk {index}
                     </div>
+
                     <div class="insight-text">
                         {escape(risk)}
                     </div>
+
                 </div>
-                """,
-                unsafe_allow_html=True
+                """
             )
 
     else:
 
-        st.markdown(
+        st.html(
             f"""
             <div class="risk-card">
+
                 <div class="insight-text">
-                    {escape(clean_text(sections["Key Risks"]))}
+                    {escape(
+                        clean_text(
+                            sections["Key Risks"]
+                        )
+                    )}
                 </div>
+
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
 
@@ -618,9 +698,10 @@ def render_gemini_output(text):
     # RECOMMENDED ACTIONS
     # --------------------------------------------------------
 
-    st.markdown(
-        '<div class="section-heading">🚀 Recommended Actions</div>',
-        unsafe_allow_html=True
+    st.html(
+        '<div class="section-heading">'
+        '🚀 Recommended Actions'
+        '</div>'
     )
 
     actions = extract_bullets(
@@ -629,9 +710,11 @@ def render_gemini_output(text):
 
     if actions:
 
-        for index, action in enumerate(actions, 1):
+        for index, action in enumerate(
+            actions,
+            1
+        ):
 
-            # Split action title from explanation
             if ":" in action:
 
                 title, description = action.split(
@@ -641,10 +724,13 @@ def render_gemini_output(text):
 
             else:
 
-                title = f"Recommended Action {index}"
+                title = (
+                    f"Recommended Action {index}"
+                )
+
                 description = action
 
-            st.markdown(
+            st.html(
                 f"""
                 <div class="action-card">
 
@@ -661,21 +747,25 @@ def render_gemini_output(text):
                     </div>
 
                 </div>
-                """,
-                unsafe_allow_html=True
+                """
             )
 
     else:
 
-        st.markdown(
+        st.html(
             f"""
             <div class="action-card">
+
                 <div class="action-description">
-                    {escape(clean_text(sections["Recommended Actions"]))}
+                    {escape(
+                        clean_text(
+                            sections["Recommended Actions"]
+                        )
+                    )}
                 </div>
+
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
 
@@ -683,16 +773,17 @@ def render_gemini_output(text):
     # OVERALL ASSESSMENT
     # --------------------------------------------------------
 
-    st.markdown(
-        '<div class="section-heading">📌 Overall Assessment</div>',
-        unsafe_allow_html=True
+    st.html(
+        '<div class="section-heading">'
+        '📌 Overall Assessment'
+        '</div>'
     )
 
     assessment = clean_text(
         sections["Overall Assessment"]
     )
 
-    st.markdown(
+    st.html(
         f"""
         <div class="assessment-card">
 
@@ -705,16 +796,19 @@ def render_gemini_output(text):
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
+
+# ============================================================
+# CREWAI PARSING
+# ============================================================
 
 def parse_crewai_strategy(text):
 
     """
-    Converts CrewAI's long markdown response into
-    individual strategy cards.
+    Converts CrewAI's long markdown response
+    into individual strategy cards.
     """
 
     lines = [
@@ -733,7 +827,9 @@ def parse_crewai_strategy(text):
         clean = clean_text(line)
 
         # Ignore generic title
-        if clean.lower().startswith("enrollment strategy report"):
+        if clean.lower().startswith(
+            "enrollment strategy report"
+        ):
             continue
 
         # Numbered major sections
@@ -745,7 +841,10 @@ def parse_crewai_strategy(text):
         if major_match:
 
             if current_strategy:
-                strategies.append(current_strategy)
+
+                strategies.append(
+                    current_strategy
+                )
 
             current_strategy = {
                 "number": major_match.group(1),
@@ -754,6 +853,7 @@ def parse_crewai_strategy(text):
             }
 
             current_subsection = None
+
             continue
 
         # A / B / C subsections
@@ -762,7 +862,10 @@ def parse_crewai_strategy(text):
             clean
         )
 
-        if subsection_match and current_strategy:
+        if (
+            subsection_match
+            and current_strategy
+        ):
 
             current_subsection = {
                 "title": subsection_match.group(2),
@@ -778,7 +881,9 @@ def parse_crewai_strategy(text):
         # Bullet points
         if clean.startswith("-"):
 
-            clean = clean.lstrip("- ").strip()
+            clean = clean.lstrip(
+                "- "
+            ).strip()
 
         if current_subsection:
 
@@ -793,10 +898,17 @@ def parse_crewai_strategy(text):
             )
 
     if current_strategy:
-        strategies.append(current_strategy)
+
+        strategies.append(
+            current_strategy
+        )
 
     return strategies
 
+
+# ============================================================
+# CREWAI OUTPUT RENDERING
+# ============================================================
 
 def render_crewai_strategy(text):
 
@@ -804,15 +916,16 @@ def render_crewai_strategy(text):
 
     if not strategies:
 
-        st.markdown(
+        st.html(
             f"""
             <div class="strategy-card">
+
                 <div class="strategy-text">
                     {escape(clean_text(text))}
                 </div>
+
             </div>
-            """,
-            unsafe_allow_html=True
+            """
         )
 
         return
@@ -824,7 +937,9 @@ def render_crewai_strategy(text):
         <div class="strategy-card">
 
             <div class="strategy-number">
-                STRATEGY {strategy["number"]}
+                STRATEGY {escape(
+                    strategy["number"]
+                )}
             </div>
 
             <div class="strategy-title">
@@ -860,10 +975,7 @@ def render_crewai_strategy(text):
 
         html += "</div>"
 
-        st.markdown(
-            html,
-            unsafe_allow_html=True
-        )
+        st.html(html)
 
 
 # ============================================================
@@ -952,7 +1064,8 @@ def build_pdf(
 
     story.append(
         Paragraph(
-            f"Department Analysis Report — {escape(str(department_name))}",
+            "Department Analysis Report — "
+            f"{escape(str(department_name))}",
             subtitle_style
         )
     )
@@ -972,24 +1085,69 @@ def build_pdf(
         ["Metric", "Value"],
         ["Students", str(student_count)],
         ["Average GPA", str(avg_gpa)],
-        ["Average Attendance", f"{avg_attendance}%"],
-        ["Average Engagement", f"{avg_engagement}/3"]
+        [
+            "Average Attendance",
+            f"{avg_attendance}%"
+        ],
+        [
+            "Average Engagement",
+            f"{avg_engagement}/3"
+        ]
     ]
 
     metric_table = Table(
         metric_data,
-        colWidths=[3.2 * inch, 2.5 * inch]
+        colWidths=[
+            3.2 * inch,
+            2.5 * inch
+        ]
     )
 
     metric_table.setStyle(
         TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#3157c7")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9dee8")),
-            ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
-            ("PADDING", (0, 0), (-1, -1), 8)
+            (
+                "BACKGROUND",
+                (0, 0),
+                (-1, 0),
+                colors.HexColor("#3157c7")
+            ),
+            (
+                "TEXTCOLOR",
+                (0, 0),
+                (-1, 0),
+                colors.white
+            ),
+            (
+                "FONTNAME",
+                (0, 0),
+                (-1, 0),
+                "Helvetica-Bold"
+            ),
+            (
+                "FONTNAME",
+                (0, 1),
+                (-1, -1),
+                "Helvetica"
+            ),
+            (
+                "GRID",
+                (0, 0),
+                (-1, -1),
+                0.5,
+                colors.HexColor("#d9dee8")
+            ),
+            (
+                "BACKGROUND",
+                (0, 1),
+                (-1, -1),
+                colors.whitesmoke
+            ),
+            (
+                "PADDING",
+                (0, 0),
+                (-1, -1),
+                8
+            )
         ])
     )
 
@@ -1048,7 +1206,9 @@ def build_pdf(
 
             story.append(
                 Paragraph(
-                    escape(clean_text(section_text)),
+                    escape(
+                        clean_text(section_text)
+                    ),
                     body_style
                 )
             )
@@ -1119,12 +1279,8 @@ def build_pdf(
 
 
 # ============================================================
-# PAGE HEADER
-# ============================================================
-
-# =========================
 # MAIN HEADER
-# =========================
+# ============================================================
 
 st.html("""
 <div class="main-header">
@@ -1142,6 +1298,7 @@ st.html("""
 </div>
 """)
 
+
 # ============================================================
 # SIDEBAR
 # ============================================================
@@ -1152,7 +1309,8 @@ with st.sidebar:
 
     st.write(
         "Upload your department CSV and select a department "
-        "to generate an AI-powered performance and retention strategy."
+        "to generate an AI-powered performance and retention "
+        "strategy."
     )
 
     st.divider()
@@ -1179,9 +1337,10 @@ with st.sidebar:
 # FILE UPLOAD
 # ============================================================
 
-st.markdown(
-    '<div class="section-heading">📂 Upload Department Data</div>',
-    unsafe_allow_html=True
+st.html(
+    '<div class="section-heading">'
+    '📂 Upload Department Data'
+    '</div>'
 )
 
 uploaded_file = st.file_uploader(
@@ -1209,7 +1368,9 @@ if uploaded_file is None:
 
 try:
 
-    df = pd.read_csv(uploaded_file)
+    df = pd.read_csv(
+        uploaded_file
+    )
 
 except Exception as e:
 
@@ -1245,7 +1406,8 @@ if missing_columns:
     )
 
     st.info(
-        "Required columns: Department, GPA, Attendance, Engagement"
+        "Required columns: Department, GPA, "
+        "Attendance, Engagement"
     )
 
     st.stop()
@@ -1275,32 +1437,37 @@ df["Engagement_numeric"] = (
 # DATASET OVERVIEW
 # ============================================================
 
-st.markdown(
-    '<div class="section-heading">📋 Dataset Overview</div>',
-    unsafe_allow_html=True
+st.html(
+    '<div class="section-heading">'
+    '📋 Dataset Overview'
+    '</div>'
 )
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
+
     st.metric(
         "Total Students",
         len(df)
     )
 
 with col2:
+
     st.metric(
         "Departments",
         df["Department"].nunique()
     )
 
 with col3:
+
     st.metric(
         "Average GPA",
         f"{df['GPA'].mean():.2f}"
     )
 
 with col4:
+
     st.metric(
         "Average Attendance",
         f"{df['Attendance'].mean():.1f}%"
@@ -1320,9 +1487,10 @@ with st.expander("🔎 View Uploaded Data"):
 # DEPARTMENT SELECTION
 # ============================================================
 
-st.markdown(
-    '<div class="section-heading">🏢 Department Analysis</div>',
-    unsafe_allow_html=True
+st.html(
+    '<div class="section-heading">'
+    '🏢 Department Analysis'
+    '</div>'
 )
 
 department_name = st.selectbox(
@@ -1332,7 +1500,9 @@ department_name = st.selectbox(
         .dropna()
         .unique()
     ),
-    help="Choose the department you want to analyze."
+    help=(
+        "Choose the department you want to analyze."
+    )
 )
 
 
@@ -1347,15 +1517,24 @@ analyze = st.button(
 )
 
 
+# ============================================================
+# ANALYSIS
+# ============================================================
+
 if analyze:
 
     # --------------------------------------------------------
-    # FILTER
+    # FILTER DEPARTMENT
     # --------------------------------------------------------
 
     dept_df = df[
         df["Department"] == department_name
     ]
+
+
+    # --------------------------------------------------------
+    # CALCULATE METRICS
+    # --------------------------------------------------------
 
     avg_gpa = round(
         dept_df["GPA"].mean(),
@@ -1372,52 +1551,30 @@ if analyze:
         2
     )
 
-    student_count = len(dept_df)
+    student_count = len(
+        dept_df
+    )
 
 
-   # --------------------------------------------------------
-# DEPARTMENT HEADER
-# --------------------------------------------------------
-
-st.html(
-    f"""
-    <div class="department-header">
-
-        <div class="department-badge">
-            🏢 {escape(str(department_name))}
-        </div>
-
-        <div class="department-title">
-            Department Performance Overview
-        </div>
-
-        <div class="department-description">
-            Analysis based on {student_count} student records.
-        </div>
-
-    </div>
-    """
-)
-
-
-# --------------------------------------------------------
-# METRICS
-# --------------------------------------------------------
-
-metric1, metric2, metric3, metric4 = st.columns(4)
-
-with metric1:
+    # --------------------------------------------------------
+    # DEPARTMENT HEADER
+    # --------------------------------------------------------
 
     st.html(
         f"""
-        <div class="metric-card">
+        <div class="department-header">
 
-            <div class="metric-title">
-                📚 Average GPA
+            <div class="department-badge">
+                🏢 {escape(str(department_name))}
             </div>
 
-            <div class="metric-value">
-                {avg_gpa}
+            <div class="department-title">
+                Department Performance Overview
+            </div>
+
+            <div class="department-description">
+                Analysis based on {student_count}
+                student records.
             </div>
 
         </div>
@@ -1425,218 +1582,295 @@ with metric1:
     )
 
 
-with metric2:
+    # --------------------------------------------------------
+    # METRICS
+    # --------------------------------------------------------
 
-    st.html(
-        f"""
-        <div class="metric-card">
+    metric1, metric2, metric3, metric4 = st.columns(4)
 
-            <div class="metric-title">
-                📅 Attendance
+
+    with metric1:
+
+        st.html(
+            f"""
+            <div class="metric-card">
+
+                <div class="metric-title">
+                    📚 Average GPA
+                </div>
+
+                <div class="metric-value">
+                    {avg_gpa}
+                </div>
+
             </div>
-
-            <div class="metric-value">
-                {avg_attendance}%
-            </div>
-
-        </div>
-        """
-    )
-
-
-with metric3:
-
-    st.html(
-        f"""
-        <div class="metric-card">
-
-            <div class="metric-title">
-                📈 Engagement
-            </div>
-
-            <div class="metric-value">
-                {avg_engagement}/3
-            </div>
-
-        </div>
-        """
-    )
-
-
-with metric4:
-
-    st.html(
-        f"""
-        <div class="metric-card">
-
-            <div class="metric-title">
-                👥 Students
-            </div>
-
-            <div class="metric-value">
-                {student_count}
-            </div>
-
-        </div>
-        """
-    )
-
-
-# ========================================================
-# GEMINI ANALYSIS
-# ========================================================
-
-st.html(
-    '<div class="section-heading">🧠 AI Department Insights</div>'
-)
-
-st.html(
-    """
-    <div class="section-description">
-        Gemini analyzes academic performance, attendance,
-        engagement and potential retention risks.
-    </div>
-    """
-)
-
-try:
-
-    with st.spinner(
-        "🧠 Gemini is analyzing department performance..."
-    ):
-
-        dept_result = dept_chain.invoke({
-            "Department": department_name,
-            "Avg_GPA": avg_gpa,
-            "Avg_Attendance": avg_attendance,
-            "Avg_Engagement": avg_engagement
-        })
-
-        dept_summary = dept_result["text"]
-
-
-    render_gemini_output(
-        dept_summary
-    )
-
-
-except Exception as e:
-
-    st.error(
-        f"❌ Gemini analysis failed: {e}"
-    )
-
-    st.stop()
-
-
-# ========================================================
-# CREWAI STRATEGY
-# ========================================================
-
-st.html(
-    '<div class="section-heading">🤖 AI Retention & Enrollment Strategy</div>'
-)
-
-st.html(
-    """
-    <div class="section-description">
-        CrewAI generates targeted strategies for improving
-        student retention and strengthening enrollment.
-    </div>
-    """
-)
-
-try:
-
-    with st.spinner(
-        "🤖 CrewAI is preparing the retention strategy..."
-    ):
-
-        kickoff_id = start_crew(
-            department_name
-        )
-
-        analysis = check_status(
-            kickoff_id
+            """
         )
 
 
-    render_crewai_strategy(
-        analysis
+    with metric2:
+
+        st.html(
+            f"""
+            <div class="metric-card">
+
+                <div class="metric-title">
+                    📅 Attendance
+                </div>
+
+                <div class="metric-value">
+                    {avg_attendance}%
+                </div>
+
+            </div>
+            """
+        )
+
+
+    with metric3:
+
+        st.html(
+            f"""
+            <div class="metric-card">
+
+                <div class="metric-title">
+                    📈 Engagement
+                </div>
+
+                <div class="metric-value">
+                    {avg_engagement}/3
+                </div>
+
+            </div>
+            """
+        )
+
+
+    with metric4:
+
+        st.html(
+            f"""
+            <div class="metric-card">
+
+                <div class="metric-title">
+                    👥 Students
+                </div>
+
+                <div class="metric-value">
+                    {student_count}
+                </div>
+
+            </div>
+            """
+        )
+
+
+    # ========================================================
+    # GEMINI ANALYSIS
+    # ========================================================
+
+    st.html(
+        '<div class="section-heading">'
+        '🧠 AI Department Insights'
+        '</div>'
     )
 
-
-except Exception as e:
-
-    st.error(
-        f"❌ CrewAI request failed: {e}"
-    )
-
-    analysis = "CrewAI strategy could not be generated."
-
-
-# ========================================================
-# PDF DOWNLOAD
-# ========================================================
-
-st.html(
-    '<div class="section-heading">📄 Download Report</div>'
-)
-
-st.html(
-    """
-    <div class="download-card">
-
-        <div style="font-size:1.2rem;font-weight:700;">
-            Complete Department Report
+    st.html(
+        """
+        <div class="section-description">
+            Gemini analyzes academic performance, attendance,
+            engagement and potential retention risks.
         </div>
+        """
+    )
 
-        <div style="color:#667085;margin-top:0.4rem;">
-            Download the department metrics, Gemini insights
-            and CrewAI retention strategy as a PDF.
+
+    try:
+
+        with st.spinner(
+            "🧠 Gemini is analyzing department performance..."
+        ):
+
+            dept_result = dept_chain.invoke(
+                {
+                    "Department": department_name,
+                    "Avg_GPA": avg_gpa,
+                    "Avg_Attendance": avg_attendance,
+                    "Avg_Engagement": avg_engagement
+                }
+            )
+
+
+            # ------------------------------------------------
+            # HANDLE DIFFERENT LANGCHAIN RESPONSE FORMATS
+            # ------------------------------------------------
+
+            if isinstance(
+                dept_result,
+                dict
+            ):
+
+                dept_summary = dept_result.get(
+                    "text",
+                    ""
+                )
+
+            else:
+
+                dept_summary = str(
+                    dept_result
+                )
+
+
+            # Handle AIMessage-like objects
+            if hasattr(
+                dept_summary,
+                "content"
+            ):
+
+                dept_summary = (
+                    dept_summary.content
+                )
+
+
+            dept_summary = str(
+                dept_summary
+            ).strip()
+
+
+        render_gemini_output(
+            dept_summary
+        )
+
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Gemini analysis failed: {e}"
+        )
+
+        st.stop()
+
+
+    # ========================================================
+    # CREWAI STRATEGY
+    # ========================================================
+
+    st.html(
+        '<div class="section-heading">'
+        '🤖 AI Retention & Enrollment Strategy'
+        '</div>'
+    )
+
+    st.html(
+        """
+        <div class="section-description">
+            CrewAI generates targeted strategies for improving
+            student retention and strengthening enrollment.
         </div>
-
-    </div>
-    """
-)
-
-
-try:
-
-    pdf_data = build_pdf(
-        department_name=department_name,
-        student_count=student_count,
-        avg_gpa=avg_gpa,
-        avg_attendance=avg_attendance,
-        avg_engagement=avg_engagement,
-        gemini_text=dept_summary,
-        crewai_text=analysis
-    )
-
-    st.download_button(
-        label="⬇️ Download Complete Report (PDF)",
-        data=pdf_data,
-        file_name=(
-            f"{department_name}_Retention_Strategy_Report.pdf"
-        ),
-        mime="application/pdf",
-        use_container_width=True
-    )
-
-except Exception as e:
-
-    st.error(
-        f"❌ Could not generate PDF: {e}"
+        """
     )
 
 
-# ========================================================
-# SUCCESS
-# ========================================================
+    try:
 
-st.success(
-    f"✅ Analysis completed successfully for {department_name}."
-)
+        with st.spinner(
+            "🤖 CrewAI is preparing the retention strategy..."
+        ):
+
+            kickoff_id = start_crew(
+                department_name
+            )
+
+            analysis = check_status(
+                kickoff_id
+            )
+
+
+        render_crewai_strategy(
+            analysis
+        )
+
+
+    except Exception as e:
+
+        st.error(
+            f"❌ CrewAI request failed: {e}"
+        )
+
+        analysis = (
+            "CrewAI strategy could not be generated."
+        )
+
+
+    # ========================================================
+    # PDF DOWNLOAD
+    # ========================================================
+
+    st.html(
+        '<div class="section-heading">'
+        '📄 Download Report'
+        '</div>'
+    )
+
+    st.html(
+        """
+        <div class="download-card">
+
+            <div style="font-size:1.2rem;font-weight:700;">
+                Complete Department Report
+            </div>
+
+            <div style="color:#667085;margin-top:0.4rem;">
+                Download the department metrics, Gemini
+                insights and CrewAI retention strategy as a PDF.
+            </div>
+
+        </div>
+        """
+    )
+
+
+    try:
+
+        pdf_data = build_pdf(
+            department_name=department_name,
+            student_count=student_count,
+            avg_gpa=avg_gpa,
+            avg_attendance=avg_attendance,
+            avg_engagement=avg_engagement,
+            gemini_text=dept_summary,
+            crewai_text=analysis
+        )
+
+
+        st.download_button(
+            label="⬇️ Download Complete Report (PDF)",
+            data=pdf_data,
+            file_name=(
+                f"{department_name}_"
+                "Retention_Strategy_Report.pdf"
+            ),
+            mime="application/pdf",
+            use_container_width=True
+        )
+
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Could not generate PDF: {e}"
+        )
+
+
+    # ========================================================
+    # SUCCESS
+    # ========================================================
+
+    st.success(
+        f"✅ Analysis completed successfully "
+        f"for {department_name}."
+    )
 
 
 # ============================================================
@@ -1648,7 +1882,9 @@ st.html(
     <div class="footer">
 
         Student Enrollment & Retention Strategy Dashboard
+
         <br><br>
+
         Gemini • LangChain • CrewAI • Streamlit
 
     </div>
