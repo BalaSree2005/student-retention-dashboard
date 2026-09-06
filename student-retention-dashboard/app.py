@@ -805,99 +805,293 @@ def render_gemini_output(text):
 # ============================================================
 
 def parse_crewai_strategy(text):
-
     """
-    Converts CrewAI's long markdown response
-    into individual strategy cards.
+    Parse CrewAI's enrollment/retention strategy into:
+    
+    Major Strategy
+        -> Target / Subsection
+            -> Strategy
+            -> Implementation
+            -> Expected Outcome
     """
-
-    lines = [
-        line.strip()
-        for line in str(text).splitlines()
-        if line.strip()
-    ]
 
     strategies = []
 
     current_strategy = None
-    current_subsection = None
+    current_target = None
+    current_detail = None
 
-    for line in lines:
+    lines = str(text).splitlines()
 
-        clean = clean_text(line)
+    for raw_line in lines:
 
-        # Ignore generic title
+        line = raw_line.strip()
+
+        if not line:
+            continue
+
+        # Remove markdown formatting
+        line = re.sub(
+            r"\*\*(.*?)\*\*",
+            r"\1",
+            line
+        )
+
+        line = re.sub(
+            r"__(.*?)__",
+            r"\1",
+            line
+        )
+
+        line = line.strip()
+
+        # ----------------------------------------------------
+        # Ignore separators
+        # ----------------------------------------------------
+
+        if line in ["---", "***", "___"]:
+            continue
+
+        # ----------------------------------------------------
+        # Remove markdown heading symbols
+        # ----------------------------------------------------
+
+        clean = re.sub(
+            r"^#+\s*",
+            "",
+            line
+        ).strip()
+
+        # ----------------------------------------------------
+        # Ignore report title
+        # ----------------------------------------------------
+
         if clean.lower().startswith(
             "enrollment strategy report"
         ):
             continue
 
-        # Numbered major sections
+        if clean.lower().startswith(
+            "objective:"
+        ):
+            continue
+
+        # ----------------------------------------------------
+        # MAJOR STRATEGY
+        # Example:
+        # 1. Recruitment Strategies Segmented by GPA Levels
+        # ----------------------------------------------------
+
         major_match = re.match(
-            r"^(\d+)\.\s+(.+)",
+            r"^(\d+)\.\s+(.+)$",
             clean
         )
 
         if major_match:
 
-            if current_strategy:
-
+            # Save previous strategy
+            if current_strategy is not None:
                 strategies.append(
                     current_strategy
                 )
 
             current_strategy = {
                 "number": major_match.group(1),
-                "title": major_match.group(2),
-                "content": []
+                "title": major_match.group(2).strip(),
+                "targets": []
             }
 
-            current_subsection = None
+            current_target = None
+            current_detail = None
 
             continue
 
-        # A / B / C subsections
-        subsection_match = re.match(
-            r"^([A-Z])\.\s+(.+)",
-            clean
+        # ----------------------------------------------------
+        # TARGET / SUBSECTION
+        #
+        # Examples:
+        # High GPA Target (3.5 and above)
+        # Moderate GPA Target (2.8 - 3.4)
+        # Low GPA Target (Below 2.8)
+        # Engagement Strategy
+        # Attendance Initiative
+        # Partnership Strategy
+        # Successful Segments to Target
+        # At-Risk Segments to Avoid
+        # ----------------------------------------------------
+
+        target_patterns = [
+            r"^High GPA Target.*",
+            r"^Moderate GPA Target.*",
+            r"^Low GPA Target.*",
+            r"^High[- ]Engagement.*",
+            r"^Engagement Strategy.*",
+            r"^Attendance Initiative.*",
+            r"^Partnership Strategy.*",
+            r"^Successful Segments to Target.*",
+            r"^At-Risk Segments to Avoid.*"
+        ]
+
+        is_target = any(
+            re.match(
+                pattern,
+                clean,
+                re.IGNORECASE
+            )
+            for pattern in target_patterns
         )
 
-        if (
-            subsection_match
-            and current_strategy
-        ):
+        if is_target and current_strategy:
 
-            current_subsection = {
-                "title": subsection_match.group(2),
-                "content": []
+            current_target = {
+                "title": clean,
+                "details": []
             }
 
-            current_strategy["content"].append(
-                current_subsection
+            current_strategy[
+                "targets"
+            ].append(
+                current_target
             )
+
+            current_detail = None
 
             continue
 
-        # Bullet points
+        # ----------------------------------------------------
+        # GENERIC SUBHEADING
+        #
+        # This catches headings that CrewAI may generate
+        # that aren't explicitly listed above.
+        # ----------------------------------------------------
+
+        if (
+            current_strategy
+            and not clean.startswith("-")
+            and not re.match(
+                r"^(Strategy|Implementation|Expected Outcome):",
+                clean,
+                re.IGNORECASE
+            )
+            and len(clean) < 120
+        ):
+
+            # Treat short standalone text as a subsection
+            if (
+                current_target is None
+                or (
+                    current_target
+                    and current_target["details"]
+                    and current_detail is not None
+                )
+            ):
+
+                current_target = {
+                    "title": clean,
+                    "details": []
+                }
+
+                current_strategy[
+                    "targets"
+                ].append(
+                    current_target
+                )
+
+                current_detail = None
+
+                continue
+
+        # ----------------------------------------------------
+        # DETAIL LINES
+        #
+        # Strategy:
+        # Implementation:
+        # Expected Outcome:
+        # ----------------------------------------------------
+
+        detail_match = re.match(
+            r"^(Strategy|Implementation|Expected Outcome)\s*:\s*(.*)$",
+            clean,
+            re.IGNORECASE
+        )
+
+        if detail_match:
+
+            label = detail_match.group(1).strip()
+
+            content = detail_match.group(2).strip()
+
+            # Create target if missing
+            if current_target is None:
+
+                current_target = {
+                    "title": "Recommended Approach",
+                    "details": []
+                }
+
+                current_strategy[
+                    "targets"
+                ].append(
+                    current_target
+                )
+
+            detail = {
+                "label": label,
+                "text": content
+            }
+
+            current_target[
+                "details"
+            ].append(
+                detail
+            )
+
+            current_detail = detail
+
+            continue
+
+        # ----------------------------------------------------
+        # BULLET CONTINUATION
+        # ----------------------------------------------------
+
         if clean.startswith("-"):
 
             clean = clean.lstrip(
                 "- "
             ).strip()
 
-        if current_subsection:
+        if current_detail:
 
-            current_subsection["content"].append(
-                clean
+            if current_detail["text"]:
+
+                current_detail["text"] += (
+                    " " + clean
+                )
+
+            else:
+
+                current_detail["text"] = clean
+
+        elif current_target:
+
+            # For bullet lists such as:
+            # - High academic achievers
+            # - Students involved in clubs
+
+            current_target[
+                "details"
+            ].append(
+                {
+                    "label": "Point",
+                    "text": clean
+                }
             )
 
-        elif current_strategy:
+    # --------------------------------------------------------
+    # Save final strategy
+    # --------------------------------------------------------
 
-            current_strategy["content"].append(
-                clean
-            )
-
-    if current_strategy:
+    if current_strategy is not None:
 
         strategies.append(
             current_strategy
@@ -912,7 +1106,13 @@ def parse_crewai_strategy(text):
 
 def render_crewai_strategy(text):
 
-    strategies = parse_crewai_strategy(text)
+    strategies = parse_crewai_strategy(
+        text
+    )
+
+    # --------------------------------------------------------
+    # FALLBACK
+    # --------------------------------------------------------
 
     if not strategies:
 
@@ -921,7 +1121,9 @@ def render_crewai_strategy(text):
             <div class="strategy-card">
 
                 <div class="strategy-text">
-                    {escape(clean_text(text))}
+                    {escape(
+                        clean_text(text)
+                    )}
                 </div>
 
             </div>
@@ -931,9 +1133,13 @@ def render_crewai_strategy(text):
         return
 
 
+    # --------------------------------------------------------
+    # RENDER EACH MAJOR STRATEGY
+    # --------------------------------------------------------
+
     for strategy in strategies:
 
-        html = f"""
+        strategy_html = f"""
         <div class="strategy-card">
 
             <div class="strategy-number">
@@ -943,45 +1149,99 @@ def render_crewai_strategy(text):
             </div>
 
             <div class="strategy-title">
-                {escape(strategy["title"])}
+                {escape(
+                    strategy["title"]
+                )}
             </div>
         """
 
-        for item in strategy["content"]:
+        # ----------------------------------------------------
+        # RENDER TARGETS
+        # ----------------------------------------------------
 
-            if isinstance(item, dict):
+        for target in strategy["targets"]:
 
-                html += f"""
+            strategy_html += f"""
                 <div class="strategy-subtitle">
-                    {escape(item["title"])}
+                    {escape(
+                        target["title"]
+                    )}
                 </div>
-                """
+            """
 
-                for content in item["content"]:
+            # ------------------------------------------------
+            # RENDER DETAILS
+            # ------------------------------------------------
 
-                    html += f"""
-                    <div class="strategy-text">
-                        • {escape(content)}
-                    </div>
+            for detail in target["details"]:
+
+                label = detail["label"]
+                content = detail["text"]
+
+                # Different styling for actual actions
+                if label.lower() == "strategy":
+
+                    strategy_html += f"""
+                        <div class="strategy-text">
+
+                            <strong>
+                                🎯 Strategy:
+                            </strong>
+
+                            {escape(content)}
+
+                        </div>
                     """
 
-            else:
+                elif label.lower() == "implementation":
 
-                html += f"""
-                <div class="strategy-text">
-                    {escape(item)}
-                </div>
-                """
+                    strategy_html += f"""
+                        <div class="strategy-text">
 
-        html += "</div>"
+                            <strong>
+                                ⚙️ Implementation:
+                            </strong>
 
-        st.html(html)
+                            {escape(content)}
 
+                        </div>
+                    """
+
+                elif label.lower() == "expected outcome":
+
+                    strategy_html += f"""
+                        <div class="strategy-text">
+
+                            <strong>
+                                📈 Expected Outcome:
+                            </strong>
+
+                            {escape(content)}
+
+                        </div>
+                    """
+
+                else:
+
+                    strategy_html += f"""
+                        <div class="strategy-text">
+
+                            • {escape(content)}
+
+                        </div>
+                    """
+
+        strategy_html += """
+        </div>
+        """
+
+        st.html(
+            strategy_html
+        )
 
 # ============================================================
 # PDF GENERATION
 # ============================================================
-
 def build_pdf(
     department_name,
     student_count,
