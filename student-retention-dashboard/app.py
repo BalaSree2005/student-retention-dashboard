@@ -1477,60 +1477,104 @@ def build_pdf(
     # CREWAI
     # --------------------------------------------------------
 
-    story.append(
-        PageBreak()
-    )
+   # --------------------------------------------------------
+# CREWAI
+# --------------------------------------------------------
 
-    story.append(
-        Paragraph(
-            "AI Retention & Enrollment Strategy",
-            heading_style
-        )
-    )
+story.append(
+    PageBreak()
+)
 
-    strategies = parse_crewai_strategy(
-        crewai_text
+story.append(
+    Paragraph(
+        "AI Retention & Enrollment Strategy",
+        heading_style
     )
+)
+
+strategies = parse_crewai_strategy(
+    crewai_text
+)
+
+if strategies:
 
     for strategy in strategies:
 
+        # -----------------------------------------------
+        # MAJOR STRATEGY
+        # -----------------------------------------------
+
         story.append(
             Paragraph(
-                f"Strategy {strategy['number']}: "
-                f"{escape(strategy['title'])}",
+                f"Strategy {escape(str(strategy['number']))}: "
+                f"{escape(str(strategy['title']))}",
                 subheading_style
             )
         )
 
-        for item in strategy["content"]:
+        # -----------------------------------------------
+        # TARGETS / SUBSECTIONS
+        # -----------------------------------------------
 
-            if isinstance(item, dict):
+        for target in strategy.get("targets", []):
 
-                story.append(
-                    Paragraph(
-                        escape(item["title"]),
-                        subheading_style
-                    )
+            target_title = target.get(
+                "title",
+                "Recommended Approach"
+            )
+
+            story.append(
+                Paragraph(
+                    escape(str(target_title)),
+                    subheading_style
+                )
+            )
+
+            # -------------------------------------------
+            # DETAILS
+            # -------------------------------------------
+
+            for detail in target.get("details", []):
+
+                label = detail.get(
+                    "label",
+                    "Point"
                 )
 
-                for content in item["content"]:
+                content = detail.get(
+                    "text",
+                    ""
+                )
 
-                    story.append(
-                        Paragraph(
-                            f"• {escape(content)}",
-                            body_style
-                        )
-                    )
+                if not content:
+                    continue
 
-            else:
-
+                # Strategy / Implementation /
+                # Expected Outcome
                 story.append(
                     Paragraph(
-                        escape(item),
+                        f"<b>{escape(str(label))}:</b> "
+                        f"{escape(str(content))}",
                         body_style
                     )
                 )
 
+else:
+
+    # -----------------------------------------------
+    # FALLBACK
+    # -----------------------------------------------
+
+    story.append(
+        Paragraph(
+            escape(
+                clean_text(
+                    crewai_text
+                )
+            ),
+            body_style
+        )
+    )
     document.build(story)
 
     buffer.seek(0)
