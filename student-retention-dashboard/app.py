@@ -43,7 +43,7 @@ st.set_page_config(
 # CUSTOM CSS
 # ============================================================
 
-st.markdown("""
+st.html("""
 <style>
 
 .stApp {
@@ -55,9 +55,6 @@ st.markdown("""
     padding-bottom: 3rem;
     max-width: 1400px;
 }
-
-
-/* ================= HEADER ================= */
 
 .main-header {
     padding: 1rem 0 1.5rem 0;
@@ -76,9 +73,6 @@ st.markdown("""
     max-width: 850px;
 }
 
-
-/* ================= SECTION ================= */
-
 .section-heading {
     font-size: 1.45rem;
     font-weight: 700;
@@ -92,9 +86,6 @@ st.markdown("""
     font-size: 0.92rem;
     margin-bottom: 1rem;
 }
-
-
-/* ================= METRIC CARDS ================= */
 
 .metric-card {
     background: white;
@@ -117,9 +108,6 @@ st.markdown("""
     font-size: 1.8rem;
     font-weight: 750;
 }
-
-
-/* ================= DEPARTMENT HEADER ================= */
 
 .department-header {
     background: white;
@@ -152,34 +140,6 @@ st.markdown("""
     font-size: 0.9rem;
 }
 
-
-/* ================= INSIGHT CARDS ================= */
-
-.insight-card {
-    background: white;
-    padding: 1.25rem 1.4rem;
-    border-radius: 13px;
-    border: 1px solid #e5e9f0;
-    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
-    margin-bottom: 0.8rem;
-}
-
-.insight-title {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #172033;
-    margin-bottom: 0.5rem;
-}
-
-.insight-text {
-    color: #475467;
-    font-size: 0.92rem;
-    line-height: 1.6;
-}
-
-
-/* ================= STRENGTH CARD ================= */
-
 .strength-card {
     background: #f0fdf4;
     border: 1px solid #bbf7d0;
@@ -195,9 +155,6 @@ st.markdown("""
     font-size: 1.05rem;
     margin-bottom: 0.5rem;
 }
-
-
-/* ================= RISK CARD ================= */
 
 .risk-card {
     background: #fffaf5;
@@ -215,9 +172,6 @@ st.markdown("""
     margin-bottom: 0.4rem;
 }
 
-
-/* ================= ACTION CARD ================= */
-
 .action-card {
     background: white;
     border: 1px solid #dbe3f0;
@@ -225,21 +179,18 @@ st.markdown("""
     padding: 1.2rem 1.35rem;
     border-radius: 12px;
     margin-bottom: 0.8rem;
-    box-shadow: 0 2px 7px rgba(16, 24, 40, 0.04);
 }
 
 .action-number {
     color: #3157c7;
     font-weight: 750;
     font-size: 0.9rem;
-    margin-bottom: 0.3rem;
 }
 
 .action-title {
     color: #172033;
     font-size: 1rem;
     font-weight: 700;
-    margin-bottom: 0.4rem;
 }
 
 .action-description {
@@ -248,23 +199,18 @@ st.markdown("""
     line-height: 1.55;
 }
 
-
-/* ================= ASSESSMENT ================= */
-
 .assessment-card {
     background: #eef4ff;
     border: 1px solid #c7d7fe;
     border-left: 5px solid #4c6fff;
     padding: 1.3rem 1.4rem;
     border-radius: 12px;
-    margin-top: 0.8rem;
 }
 
 .assessment-title {
     color: #243b8f;
     font-size: 1.05rem;
     font-weight: 750;
-    margin-bottom: 0.5rem;
 }
 
 .assessment-text {
@@ -273,38 +219,30 @@ st.markdown("""
     line-height: 1.6;
 }
 
-
-/* ================= STRATEGY CARDS ================= */
-
 .strategy-card {
     background: white;
     border: 1px solid #e5e9f0;
     border-radius: 14px;
     padding: 1.35rem 1.45rem;
     margin-bottom: 1rem;
-    box-shadow: 0 3px 9px rgba(16, 24, 40, 0.04);
 }
 
 .strategy-number {
     color: #3157c7;
     font-size: 0.85rem;
     font-weight: 750;
-    margin-bottom: 0.25rem;
 }
 
 .strategy-title {
     color: #172033;
     font-size: 1.1rem;
     font-weight: 750;
-    margin-bottom: 0.7rem;
 }
 
 .strategy-subtitle {
     color: #344054;
     font-size: 0.98rem;
     font-weight: 700;
-    margin-top: 0.8rem;
-    margin-bottom: 0.3rem;
 }
 
 .strategy-text {
@@ -313,9 +251,6 @@ st.markdown("""
     line-height: 1.6;
 }
 
-
-/* ================= DOWNLOAD ================= */
-
 .download-card {
     background: white;
     border: 1px solid #dbe3f0;
@@ -323,11 +258,7 @@ st.markdown("""
     padding: 1.5rem;
     margin-top: 2rem;
     text-align: center;
-    box-shadow: 0 3px 10px rgba(16, 24, 40, 0.04);
 }
-
-
-/* ================= UPLOAD ================= */
 
 [data-testid="stFileUploader"] {
     background: white;
@@ -336,17 +267,11 @@ st.markdown("""
     border: 1px solid #e5e9f0;
 }
 
-
-/* ================= BUTTON ================= */
-
 .stButton > button {
     border-radius: 10px;
     min-height: 45px;
     font-weight: 650;
 }
-
-
-/* ================= FOOTER ================= */
 
 .footer {
     text-align: center;
@@ -358,7 +283,7 @@ st.markdown("""
 }
 
 </style>
-""", unsafe_allow_html=True)
+""")
 
 
 # ============================================================
