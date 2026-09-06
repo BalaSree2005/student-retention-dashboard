@@ -1375,288 +1375,282 @@ if analyze:
     student_count = len(dept_df)
 
 
-    # --------------------------------------------------------
-    # DEPARTMENT HEADER
-    # --------------------------------------------------------
+   # --------------------------------------------------------
+# DEPARTMENT HEADER
+# --------------------------------------------------------
 
-    st.markdown(
+st.html(
+    f"""
+    <div class="department-header">
+
+        <div class="department-badge">
+            🏢 {escape(str(department_name))}
+        </div>
+
+        <div class="department-title">
+            Department Performance Overview
+        </div>
+
+        <div class="department-description">
+            Analysis based on {student_count} student records.
+        </div>
+
+    </div>
+    """
+)
+
+
+# --------------------------------------------------------
+# METRICS
+# --------------------------------------------------------
+
+metric1, metric2, metric3, metric4 = st.columns(4)
+
+with metric1:
+
+    st.html(
         f"""
-        <div class="department-header">
+        <div class="metric-card">
 
-            <div class="department-badge">
-                🏢 {escape(str(department_name))}
+            <div class="metric-title">
+                📚 Average GPA
             </div>
 
-            <div class="department-title">
-                Department Performance Overview
-            </div>
-
-            <div class="department-description">
-                Analysis based on {student_count} student records.
+            <div class="metric-value">
+                {avg_gpa}
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
-    # --------------------------------------------------------
-    # METRICS
-    # --------------------------------------------------------
-
-    metric1, metric2, metric3, metric4 = st.columns(4)
-
-    with metric1:
-
-        st.markdown(
-            f"""
-            <div class="metric-card">
-
-                <div class="metric-title">
-                    📚 Average GPA
-                </div>
-
-                <div class="metric-value">
-                    {avg_gpa}
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with metric2:
-
-        st.markdown(
-            f"""
-            <div class="metric-card">
-
-                <div class="metric-title">
-                    📅 Attendance
-                </div>
-
-                <div class="metric-value">
-                    {avg_attendance}%
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with metric3:
-
-        st.markdown(
-            f"""
-            <div class="metric-card">
-
-                <div class="metric-title">
-                    📈 Engagement
-                </div>
-
-                <div class="metric-value">
-                    {avg_engagement}/3
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with metric4:
-
-        st.markdown(
-            f"""
-            <div class="metric-card">
-
-                <div class="metric-title">
-                    👥 Students
-                </div>
-
-                <div class="metric-value">
-                    {student_count}
-                </div>
-
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-    # ========================================================
-    # GEMINI ANALYSIS
-    # ========================================================
-
-    st.markdown(
-        '<div class="section-heading">🧠 AI Department Insights</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
         """
-        <div class="section-description">
-            Gemini analyzes academic performance, attendance,
-            engagement and potential retention risks.
-        </div>
-        """,
-        unsafe_allow_html=True
     )
 
-    try:
 
-        with st.spinner(
-            "🧠 Gemini is analyzing department performance..."
-        ):
+with metric2:
 
-            dept_result = dept_chain.invoke({
-                "Department": department_name,
-                "Avg_GPA": avg_gpa,
-                "Avg_Attendance": avg_attendance,
-                "Avg_Engagement": avg_engagement
-            })
+    st.html(
+        f"""
+        <div class="metric-card">
 
-            dept_summary = dept_result["text"]
-
-
-        render_gemini_output(
-            dept_summary
-        )
-
-
-    except Exception as e:
-
-        st.error(
-            f"❌ Gemini analysis failed: {e}"
-        )
-
-        st.stop()
-
-
-    # ========================================================
-    # CREWAI STRATEGY
-    # ========================================================
-
-    st.markdown(
-        '<div class="section-heading">🤖 AI Retention & Enrollment Strategy</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        """
-        <div class="section-description">
-            CrewAI generates targeted strategies for improving
-            student retention and strengthening enrollment.
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    try:
-
-        with st.spinner(
-            "🤖 CrewAI is preparing the retention strategy..."
-        ):
-
-            kickoff_id = start_crew(
-                department_name
-            )
-
-            analysis = check_status(
-                kickoff_id
-            )
-
-
-        render_crewai_strategy(
-            analysis
-        )
-
-
-    except Exception as e:
-
-        st.error(
-            f"❌ CrewAI request failed: {e}"
-        )
-
-        analysis = "CrewAI strategy could not be generated."
-
-
-    # ========================================================
-    # PDF DOWNLOAD
-    # ========================================================
-
-    st.markdown(
-        '<div class="section-heading">📄 Download Report</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        """
-        <div class="download-card">
-
-            <div style="font-size:1.2rem;font-weight:700;">
-                Complete Department Report
+            <div class="metric-title">
+                📅 Attendance
             </div>
 
-            <div style="color:#667085;margin-top:0.4rem;">
-                Download the department metrics, Gemini insights
-                and CrewAI retention strategy as a PDF.
+            <div class="metric-value">
+                {avg_attendance}%
             </div>
 
         </div>
-        """,
-        unsafe_allow_html=True
+        """
     )
 
 
-    try:
+with metric3:
 
-        pdf_data = build_pdf(
-            department_name=department_name,
-            student_count=student_count,
-            avg_gpa=avg_gpa,
-            avg_attendance=avg_attendance,
-            avg_engagement=avg_engagement,
-            gemini_text=dept_summary,
-            crewai_text=analysis
-        )
+    st.html(
+        f"""
+        <div class="metric-card">
 
-        st.download_button(
-            label="⬇️ Download Complete Report (PDF)",
-            data=pdf_data,
-            file_name=(
-                f"{department_name}_Retention_Strategy_Report.pdf"
-            ),
-            mime="application/pdf",
-            use_container_width=True
-        )
+            <div class="metric-title">
+                📈 Engagement
+            </div>
 
-    except Exception as e:
+            <div class="metric-value">
+                {avg_engagement}/3
+            </div>
 
-        st.error(
-            f"❌ Could not generate PDF: {e}"
-        )
-
-
-    # ========================================================
-    # SUCCESS
-    # ========================================================
-
-    st.success(
-        f"✅ Analysis completed successfully for {department_name}."
+        </div>
+        """
     )
+
+
+with metric4:
+
+    st.html(
+        f"""
+        <div class="metric-card">
+
+            <div class="metric-title">
+                👥 Students
+            </div>
+
+            <div class="metric-value">
+                {student_count}
+            </div>
+
+        </div>
+        """
+    )
+
+
+# ========================================================
+# GEMINI ANALYSIS
+# ========================================================
+
+st.html(
+    '<div class="section-heading">🧠 AI Department Insights</div>'
+)
+
+st.html(
+    """
+    <div class="section-description">
+        Gemini analyzes academic performance, attendance,
+        engagement and potential retention risks.
+    </div>
+    """
+)
+
+try:
+
+    with st.spinner(
+        "🧠 Gemini is analyzing department performance..."
+    ):
+
+        dept_result = dept_chain.invoke({
+            "Department": department_name,
+            "Avg_GPA": avg_gpa,
+            "Avg_Attendance": avg_attendance,
+            "Avg_Engagement": avg_engagement
+        })
+
+        dept_summary = dept_result["text"]
+
+
+    render_gemini_output(
+        dept_summary
+    )
+
+
+except Exception as e:
+
+    st.error(
+        f"❌ Gemini analysis failed: {e}"
+    )
+
+    st.stop()
+
+
+# ========================================================
+# CREWAI STRATEGY
+# ========================================================
+
+st.html(
+    '<div class="section-heading">🤖 AI Retention & Enrollment Strategy</div>'
+)
+
+st.html(
+    """
+    <div class="section-description">
+        CrewAI generates targeted strategies for improving
+        student retention and strengthening enrollment.
+    </div>
+    """
+)
+
+try:
+
+    with st.spinner(
+        "🤖 CrewAI is preparing the retention strategy..."
+    ):
+
+        kickoff_id = start_crew(
+            department_name
+        )
+
+        analysis = check_status(
+            kickoff_id
+        )
+
+
+    render_crewai_strategy(
+        analysis
+    )
+
+
+except Exception as e:
+
+    st.error(
+        f"❌ CrewAI request failed: {e}"
+    )
+
+    analysis = "CrewAI strategy could not be generated."
+
+
+# ========================================================
+# PDF DOWNLOAD
+# ========================================================
+
+st.html(
+    '<div class="section-heading">📄 Download Report</div>'
+)
+
+st.html(
+    """
+    <div class="download-card">
+
+        <div style="font-size:1.2rem;font-weight:700;">
+            Complete Department Report
+        </div>
+
+        <div style="color:#667085;margin-top:0.4rem;">
+            Download the department metrics, Gemini insights
+            and CrewAI retention strategy as a PDF.
+        </div>
+
+    </div>
+    """
+)
+
+
+try:
+
+    pdf_data = build_pdf(
+        department_name=department_name,
+        student_count=student_count,
+        avg_gpa=avg_gpa,
+        avg_attendance=avg_attendance,
+        avg_engagement=avg_engagement,
+        gemini_text=dept_summary,
+        crewai_text=analysis
+    )
+
+    st.download_button(
+        label="⬇️ Download Complete Report (PDF)",
+        data=pdf_data,
+        file_name=(
+            f"{department_name}_Retention_Strategy_Report.pdf"
+        ),
+        mime="application/pdf",
+        use_container_width=True
+    )
+
+except Exception as e:
+
+    st.error(
+        f"❌ Could not generate PDF: {e}"
+    )
+
+
+# ========================================================
+# SUCCESS
+# ========================================================
+
+st.success(
+    f"✅ Analysis completed successfully for {department_name}."
+)
 
 
 # ============================================================
 # FOOTER
 # ============================================================
 
-st.markdown("""
-<div class="footer">
+st.html(
+    """
+    <div class="footer">
 
-    Student Enrollment & Retention Strategy Dashboard
-    <br><br>
-    Gemini • LangChain • CrewAI • Streamlit
+        Student Enrollment & Retention Strategy Dashboard
+        <br><br>
+        Gemini • LangChain • CrewAI • Streamlit
 
-</div>
-""", unsafe_allow_html=True)
+    </div>
+    """
+)
