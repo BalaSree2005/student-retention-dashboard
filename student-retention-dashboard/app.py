@@ -1,5 +1,9 @@
 import os
 import time
+import re
+from io import BytesIO
+from html import escape
+
 import pandas as pd
 import requests
 import streamlit as st
@@ -7,6 +11,20 @@ import streamlit as st
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain_google_genai import ChatGoogleGenerativeAI
+
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Paragraph,
+    Spacer,
+    Table,
+    TableStyle,
+    PageBreak
+)
 
 
 # ============================================================
@@ -22,137 +40,322 @@ st.set_page_config(
 
 
 # ============================================================
-# CUSTOM CSS - UI / UX
+# CUSTOM CSS
 # ============================================================
 
 st.markdown("""
 <style>
 
-    /* Main background */
-    .stApp {
-        background-color: #f7f9fc;
-    }
+.stApp {
+    background-color: #f6f8fc;
+}
 
-    /* Main content */
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 3rem;
-        max-width: 1400px;
-    }
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+    max-width: 1400px;
+}
 
-    /* Header */
-    .main-header {
-        padding: 1.5rem 0 1rem 0;
-    }
 
-    .main-title {
-        font-size: 2.4rem;
-        font-weight: 700;
-        margin-bottom: 0.2rem;
-        color: #172033;
-    }
+/* ================= HEADER ================= */
 
-    .main-subtitle {
-        font-size: 1.05rem;
-        color: #667085;
-        margin-bottom: 1.5rem;
-    }
+.main-header {
+    padding: 1rem 0 1.5rem 0;
+}
 
-    /* Cards */
-    .metric-card {
-        background: white;
-        padding: 1.3rem;
-        border-radius: 14px;
-        border: 1px solid #e6eaf0;
-        box-shadow: 0 2px 8px rgba(16, 24, 40, 0.05);
-        min-height: 125px;
-    }
+.main-title {
+    font-size: 2.4rem;
+    font-weight: 750;
+    color: #172033;
+    margin-bottom: 0.4rem;
+}
 
-    .metric-title {
-        color: #667085;
-        font-size: 0.9rem;
-        font-weight: 500;
-        margin-bottom: 0.5rem;
-    }
+.main-subtitle {
+    font-size: 1.05rem;
+    color: #667085;
+    max-width: 850px;
+}
 
-    .metric-value {
-        color: #172033;
-        font-size: 1.8rem;
-        font-weight: 700;
-    }
 
-    /* Section cards */
-    .section-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 14px;
-        border: 1px solid #e6eaf0;
-        box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
-        margin-top: 1rem;
-        margin-bottom: 1rem;
-    }
+/* ================= SECTION ================= */
 
-    .section-title {
-        font-size: 1.25rem;
-        font-weight: 650;
-        color: #172033;
-        margin-bottom: 0.7rem;
-    }
+.section-heading {
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: #172033;
+    margin-top: 1.8rem;
+    margin-bottom: 0.8rem;
+}
 
-    .section-description {
-        color: #667085;
-        font-size: 0.92rem;
-        margin-bottom: 1rem;
-    }
+.section-description {
+    color: #667085;
+    font-size: 0.92rem;
+    margin-bottom: 1rem;
+}
 
-    /* Department badge */
-    .department-badge {
-        display: inline-block;
-        padding: 0.4rem 0.8rem;
-        border-radius: 20px;
-        background-color: #eef4ff;
-        color: #3157c7;
-        font-size: 0.85rem;
-        font-weight: 600;
-        margin-bottom: 0.8rem;
-    }
 
-    /* Upload area */
-    [data-testid="stFileUploader"] {
-        background: white;
-        padding: 1rem;
-        border-radius: 14px;
-        border: 1px solid #e6eaf0;
-    }
+/* ================= METRIC CARDS ================= */
 
-    /* Button */
-    .stButton > button {
-        width: 100%;
-        border-radius: 10px;
-        padding: 0.65rem 1rem;
-        font-weight: 600;
-        font-size: 1rem;
-    }
+.metric-card {
+    background: white;
+    padding: 1.25rem;
+    border-radius: 14px;
+    border: 1px solid #e5e9f0;
+    box-shadow: 0 3px 10px rgba(16, 24, 40, 0.05);
+    min-height: 115px;
+}
 
-    /* Info box */
-    .info-card {
-        background: #eef4ff;
-        border-left: 4px solid #4c6fff;
-        padding: 1rem;
-        border-radius: 8px;
-        color: #344054;
-        margin: 1rem 0;
-    }
+.metric-title {
+    color: #667085;
+    font-size: 0.88rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
 
-    /* Footer */
-    .footer {
-        text-align: center;
-        color: #98a2b3;
-        font-size: 0.8rem;
-        margin-top: 3rem;
-        padding-top: 1rem;
-        border-top: 1px solid #e6eaf0;
-    }
+.metric-value {
+    color: #172033;
+    font-size: 1.8rem;
+    font-weight: 750;
+}
+
+
+/* ================= DEPARTMENT HEADER ================= */
+
+.department-header {
+    background: white;
+    padding: 1.4rem 1.6rem;
+    border-radius: 14px;
+    border: 1px solid #e5e9f0;
+    box-shadow: 0 3px 10px rgba(16, 24, 40, 0.04);
+    margin-top: 1.2rem;
+}
+
+.department-badge {
+    display: inline-block;
+    background: #eef4ff;
+    color: #3157c7;
+    padding: 0.35rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin-bottom: 0.7rem;
+}
+
+.department-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #172033;
+}
+
+.department-description {
+    color: #667085;
+    font-size: 0.9rem;
+}
+
+
+/* ================= INSIGHT CARDS ================= */
+
+.insight-card {
+    background: white;
+    padding: 1.25rem 1.4rem;
+    border-radius: 13px;
+    border: 1px solid #e5e9f0;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.04);
+    margin-bottom: 0.8rem;
+}
+
+.insight-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #172033;
+    margin-bottom: 0.5rem;
+}
+
+.insight-text {
+    color: #475467;
+    font-size: 0.92rem;
+    line-height: 1.6;
+}
+
+
+/* ================= STRENGTH CARD ================= */
+
+.strength-card {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-left: 5px solid #22c55e;
+    padding: 1.25rem 1.4rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+}
+
+.strength-title {
+    color: #166534;
+    font-weight: 750;
+    font-size: 1.05rem;
+    margin-bottom: 0.5rem;
+}
+
+
+/* ================= RISK CARD ================= */
+
+.risk-card {
+    background: #fffaf5;
+    border: 1px solid #fed7aa;
+    border-left: 5px solid #f97316;
+    padding: 1.2rem 1.35rem;
+    border-radius: 12px;
+    margin-bottom: 0.8rem;
+}
+
+.risk-title {
+    color: #9a3412;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.4rem;
+}
+
+
+/* ================= ACTION CARD ================= */
+
+.action-card {
+    background: white;
+    border: 1px solid #dbe3f0;
+    border-left: 5px solid #4c6fff;
+    padding: 1.2rem 1.35rem;
+    border-radius: 12px;
+    margin-bottom: 0.8rem;
+    box-shadow: 0 2px 7px rgba(16, 24, 40, 0.04);
+}
+
+.action-number {
+    color: #3157c7;
+    font-weight: 750;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+}
+
+.action-title {
+    color: #172033;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+}
+
+.action-description {
+    color: #475467;
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+
+
+/* ================= ASSESSMENT ================= */
+
+.assessment-card {
+    background: #eef4ff;
+    border: 1px solid #c7d7fe;
+    border-left: 5px solid #4c6fff;
+    padding: 1.3rem 1.4rem;
+    border-radius: 12px;
+    margin-top: 0.8rem;
+}
+
+.assessment-title {
+    color: #243b8f;
+    font-size: 1.05rem;
+    font-weight: 750;
+    margin-bottom: 0.5rem;
+}
+
+.assessment-text {
+    color: #344054;
+    font-size: 0.92rem;
+    line-height: 1.6;
+}
+
+
+/* ================= STRATEGY CARDS ================= */
+
+.strategy-card {
+    background: white;
+    border: 1px solid #e5e9f0;
+    border-radius: 14px;
+    padding: 1.35rem 1.45rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 3px 9px rgba(16, 24, 40, 0.04);
+}
+
+.strategy-number {
+    color: #3157c7;
+    font-size: 0.85rem;
+    font-weight: 750;
+    margin-bottom: 0.25rem;
+}
+
+.strategy-title {
+    color: #172033;
+    font-size: 1.1rem;
+    font-weight: 750;
+    margin-bottom: 0.7rem;
+}
+
+.strategy-subtitle {
+    color: #344054;
+    font-size: 0.98rem;
+    font-weight: 700;
+    margin-top: 0.8rem;
+    margin-bottom: 0.3rem;
+}
+
+.strategy-text {
+    color: #475467;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+
+/* ================= DOWNLOAD ================= */
+
+.download-card {
+    background: white;
+    border: 1px solid #dbe3f0;
+    border-radius: 14px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+    text-align: center;
+    box-shadow: 0 3px 10px rgba(16, 24, 40, 0.04);
+}
+
+
+/* ================= UPLOAD ================= */
+
+[data-testid="stFileUploader"] {
+    background: white;
+    padding: 1rem;
+    border-radius: 14px;
+    border: 1px solid #e5e9f0;
+}
+
+
+/* ================= BUTTON ================= */
+
+.stButton > button {
+    border-radius: 10px;
+    min-height: 45px;
+    font-weight: 650;
+}
+
+
+/* ================= FOOTER ================= */
+
+.footer {
+    text-align: center;
+    color: #98a2b3;
+    font-size: 0.8rem;
+    margin-top: 3rem;
+    padding-top: 1.2rem;
+    border-top: 1px solid #e5e9f0;
+}
 
 </style>
 """, unsafe_allow_html=True)
@@ -165,8 +368,11 @@ st.markdown("""
 try:
     os.environ["CREWAI_BEARER_TOKEN"] = st.secrets["CREWAI_BEARER_TOKEN"]
     os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
+
 except Exception:
-    st.error("⚠️ API keys are not configured correctly in Streamlit Secrets.")
+    st.error(
+        "⚠️ API keys are not configured correctly in Streamlit Secrets."
+    )
     st.stop()
 
 
@@ -174,7 +380,9 @@ except Exception:
 # CREWAI CONFIGURATION
 # ============================================================
 
-BASE_URL = "https://enrollment-retention-management-crew-v1-c21-82c3d780.crewai.com"
+BASE_URL = (
+    "https://enrollment-retention-management-crew-v1-c21-82c3d780.crewai.com"
+)
 
 KICKOFF_URL = f"{BASE_URL}/kickoff"
 STATUS_URL = f"{BASE_URL}/status"
@@ -186,7 +394,7 @@ HEADERS = {
 
 
 # ============================================================
-# GEMINI LLM
+# GEMINI
 # ============================================================
 
 llm = ChatGoogleGenerativeAI(
@@ -196,7 +404,7 @@ llm = ChatGoogleGenerativeAI(
 
 
 # ============================================================
-# DEPARTMENT PROMPT
+# GEMINI PROMPT
 # ============================================================
 
 dept_template = """
@@ -211,21 +419,22 @@ Average Engagement Score: {Avg_Engagement} out of 3
 
 Provide a concise administration-focused analysis.
 
-Structure your response exactly under these headings:
+Structure your response exactly using these headings:
 
 ### Key Strengths
-Mention the positive aspects of the department.
+Give 2 to 3 concise positive observations.
 
 ### Key Risks
-Identify potential academic, attendance, engagement, retention, or enrollment concerns.
+Give 3 to 5 concise risks. Each risk should be one clear point.
 
 ### Recommended Actions
-Give 3 to 5 practical actions administrators can take.
+Give 3 to 5 practical actions. Each action should have a short title followed by a concise explanation.
 
 ### Overall Assessment
-Give a short concluding assessment of the department.
+Give one concise concluding paragraph.
 
-Keep the response professional, clear, and actionable.
+Keep the response professional, clear and actionable.
+Avoid unnecessary introduction or conclusion.
 """
 
 dept_prompt = PromptTemplate(
@@ -299,20 +508,707 @@ def check_status(kickoff_id):
 
 
 # ============================================================
+# TEXT CLEANING HELPERS
+# ============================================================
+
+def clean_text(text):
+    """Remove markdown formatting for cleaner display."""
+
+    text = str(text)
+
+    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+    text = re.sub(r"\*(.*?)\*", r"\1", text)
+    text = re.sub(r"__(.*?)__", r"\1", text)
+    text = re.sub(r"`(.*?)`", r"\1", text)
+
+    return text.strip()
+
+
+def split_gemini_sections(text):
+
+    sections = {
+        "Key Strengths": "",
+        "Key Risks": "",
+        "Recommended Actions": "",
+        "Overall Assessment": ""
+    }
+
+    current = None
+
+    for line in text.splitlines():
+
+        line = line.strip()
+
+        if not line:
+            continue
+
+        normalized = re.sub(
+            r"^#+\s*",
+            "",
+            line
+        ).strip()
+
+        matched = False
+
+        for heading in sections:
+
+            if normalized.lower() == heading.lower():
+
+                current = heading
+                matched = True
+                break
+
+        if matched:
+            continue
+
+        if current:
+            sections[current] += line + "\n"
+
+    return sections
+
+
+def extract_bullets(text):
+
+    items = []
+
+    for line in text.splitlines():
+
+        line = line.strip()
+
+        if not line:
+            continue
+
+        if line.startswith("- "):
+            items.append(clean_text(line[2:]))
+
+        elif line.startswith("* "):
+            items.append(clean_text(line[2:]))
+
+        elif re.match(r"^\d+[\.\)]\s+", line):
+            item = re.sub(
+                r"^\d+[\.\)]\s+",
+                "",
+                line
+            )
+            items.append(clean_text(item))
+
+    return items
+
+
+def render_gemini_output(text):
+
+    sections = split_gemini_sections(text)
+
+    # --------------------------------------------------------
+    # KEY STRENGTHS
+    # --------------------------------------------------------
+
+    st.markdown(
+        '<div class="section-heading">🌟 Key Strengths</div>',
+        unsafe_allow_html=True
+    )
+
+    strengths = extract_bullets(
+        sections["Key Strengths"]
+    )
+
+    if strengths:
+
+        for strength in strengths:
+
+            st.markdown(
+                f"""
+                <div class="strength-card">
+                    <div class="strength-title">
+                        ✓ Positive Indicator
+                    </div>
+                    <div class="insight-text">
+                        {escape(strength)}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    else:
+
+        st.markdown(
+            f"""
+            <div class="strength-card">
+                <div class="insight-text">
+                    {escape(clean_text(sections["Key Strengths"]))}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+    # --------------------------------------------------------
+    # KEY RISKS
+    # --------------------------------------------------------
+
+    st.markdown(
+        '<div class="section-heading">⚠️ Key Risks</div>',
+        unsafe_allow_html=True
+    )
+
+    risks = extract_bullets(
+        sections["Key Risks"]
+    )
+
+    if risks:
+
+        for index, risk in enumerate(risks, 1):
+
+            st.markdown(
+                f"""
+                <div class="risk-card">
+                    <div class="risk-title">
+                        Risk {index}
+                    </div>
+                    <div class="insight-text">
+                        {escape(risk)}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    else:
+
+        st.markdown(
+            f"""
+            <div class="risk-card">
+                <div class="insight-text">
+                    {escape(clean_text(sections["Key Risks"]))}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+    # --------------------------------------------------------
+    # RECOMMENDED ACTIONS
+    # --------------------------------------------------------
+
+    st.markdown(
+        '<div class="section-heading">🚀 Recommended Actions</div>',
+        unsafe_allow_html=True
+    )
+
+    actions = extract_bullets(
+        sections["Recommended Actions"]
+    )
+
+    if actions:
+
+        for index, action in enumerate(actions, 1):
+
+            # Split action title from explanation
+            if ":" in action:
+
+                title, description = action.split(
+                    ":",
+                    1
+                )
+
+            else:
+
+                title = f"Recommended Action {index}"
+                description = action
+
+            st.markdown(
+                f"""
+                <div class="action-card">
+
+                    <div class="action-number">
+                        ACTION {index}
+                    </div>
+
+                    <div class="action-title">
+                        {escape(title.strip())}
+                    </div>
+
+                    <div class="action-description">
+                        {escape(description.strip())}
+                    </div>
+
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    else:
+
+        st.markdown(
+            f"""
+            <div class="action-card">
+                <div class="action-description">
+                    {escape(clean_text(sections["Recommended Actions"]))}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+    # --------------------------------------------------------
+    # OVERALL ASSESSMENT
+    # --------------------------------------------------------
+
+    st.markdown(
+        '<div class="section-heading">📌 Overall Assessment</div>',
+        unsafe_allow_html=True
+    )
+
+    assessment = clean_text(
+        sections["Overall Assessment"]
+    )
+
+    st.markdown(
+        f"""
+        <div class="assessment-card">
+
+            <div class="assessment-title">
+                Department Outlook
+            </div>
+
+            <div class="assessment-text">
+                {escape(assessment)}
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def parse_crewai_strategy(text):
+
+    """
+    Converts CrewAI's long markdown response into
+    individual strategy cards.
+    """
+
+    lines = [
+        line.strip()
+        for line in str(text).splitlines()
+        if line.strip()
+    ]
+
+    strategies = []
+
+    current_strategy = None
+    current_subsection = None
+
+    for line in lines:
+
+        clean = clean_text(line)
+
+        # Ignore generic title
+        if clean.lower().startswith("enrollment strategy report"):
+            continue
+
+        # Numbered major sections
+        major_match = re.match(
+            r"^(\d+)\.\s+(.+)",
+            clean
+        )
+
+        if major_match:
+
+            if current_strategy:
+                strategies.append(current_strategy)
+
+            current_strategy = {
+                "number": major_match.group(1),
+                "title": major_match.group(2),
+                "content": []
+            }
+
+            current_subsection = None
+            continue
+
+        # A / B / C subsections
+        subsection_match = re.match(
+            r"^([A-Z])\.\s+(.+)",
+            clean
+        )
+
+        if subsection_match and current_strategy:
+
+            current_subsection = {
+                "title": subsection_match.group(2),
+                "content": []
+            }
+
+            current_strategy["content"].append(
+                current_subsection
+            )
+
+            continue
+
+        # Bullet points
+        if clean.startswith("-"):
+
+            clean = clean.lstrip("- ").strip()
+
+        if current_subsection:
+
+            current_subsection["content"].append(
+                clean
+            )
+
+        elif current_strategy:
+
+            current_strategy["content"].append(
+                clean
+            )
+
+    if current_strategy:
+        strategies.append(current_strategy)
+
+    return strategies
+
+
+def render_crewai_strategy(text):
+
+    strategies = parse_crewai_strategy(text)
+
+    if not strategies:
+
+        st.markdown(
+            f"""
+            <div class="strategy-card">
+                <div class="strategy-text">
+                    {escape(clean_text(text))}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        return
+
+
+    for strategy in strategies:
+
+        html = f"""
+        <div class="strategy-card">
+
+            <div class="strategy-number">
+                STRATEGY {strategy["number"]}
+            </div>
+
+            <div class="strategy-title">
+                {escape(strategy["title"])}
+            </div>
+        """
+
+        for item in strategy["content"]:
+
+            if isinstance(item, dict):
+
+                html += f"""
+                <div class="strategy-subtitle">
+                    {escape(item["title"])}
+                </div>
+                """
+
+                for content in item["content"]:
+
+                    html += f"""
+                    <div class="strategy-text">
+                        • {escape(content)}
+                    </div>
+                    """
+
+            else:
+
+                html += f"""
+                <div class="strategy-text">
+                    {escape(item)}
+                </div>
+                """
+
+        html += "</div>"
+
+        st.markdown(
+            html,
+            unsafe_allow_html=True
+        )
+
+
+# ============================================================
+# PDF GENERATION
+# ============================================================
+
+def build_pdf(
+    department_name,
+    student_count,
+    avg_gpa,
+    avg_attendance,
+    avg_engagement,
+    gemini_text,
+    crewai_text
+):
+
+    buffer = BytesIO()
+
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=45,
+        leftMargin=45,
+        topMargin=45,
+        bottomMargin=45
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        "ReportTitle",
+        parent=styles["Title"],
+        alignment=TA_CENTER,
+        fontSize=20,
+        leading=25,
+        spaceAfter=10
+    )
+
+    subtitle_style = ParagraphStyle(
+        "Subtitle",
+        parent=styles["Normal"],
+        alignment=TA_CENTER,
+        fontSize=10,
+        textColor=colors.grey,
+        spaceAfter=20
+    )
+
+    heading_style = ParagraphStyle(
+        "Heading",
+        parent=styles["Heading2"],
+        fontSize=14,
+        leading=18,
+        spaceBefore=14,
+        spaceAfter=8
+    )
+
+    subheading_style = ParagraphStyle(
+        "SubHeading",
+        parent=styles["Heading3"],
+        fontSize=11,
+        leading=14,
+        spaceBefore=8,
+        spaceAfter=5
+    )
+
+    body_style = ParagraphStyle(
+        "Body",
+        parent=styles["BodyText"],
+        fontSize=9.5,
+        leading=14,
+        spaceAfter=6
+    )
+
+    story = []
+
+    # --------------------------------------------------------
+    # TITLE
+    # --------------------------------------------------------
+
+    story.append(
+        Paragraph(
+            "Student Enrollment & Retention Strategy",
+            title_style
+        )
+    )
+
+    story.append(
+        Paragraph(
+            f"Department Analysis Report — {escape(str(department_name))}",
+            subtitle_style
+        )
+    )
+
+    # --------------------------------------------------------
+    # METRICS
+    # --------------------------------------------------------
+
+    story.append(
+        Paragraph(
+            "Department Performance Overview",
+            heading_style
+        )
+    )
+
+    metric_data = [
+        ["Metric", "Value"],
+        ["Students", str(student_count)],
+        ["Average GPA", str(avg_gpa)],
+        ["Average Attendance", f"{avg_attendance}%"],
+        ["Average Engagement", f"{avg_engagement}/3"]
+    ]
+
+    metric_table = Table(
+        metric_data,
+        colWidths=[3.2 * inch, 2.5 * inch]
+    )
+
+    metric_table.setStyle(
+        TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#3157c7")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#d9dee8")),
+            ("BACKGROUND", (0, 1), (-1, -1), colors.whitesmoke),
+            ("PADDING", (0, 0), (-1, -1), 8)
+        ])
+    )
+
+    story.append(metric_table)
+
+    # --------------------------------------------------------
+    # GEMINI SECTION
+    # --------------------------------------------------------
+
+    story.append(
+        Paragraph(
+            "AI Department Insights",
+            heading_style
+        )
+    )
+
+    sections = split_gemini_sections(
+        gemini_text
+    )
+
+    for heading in [
+        "Key Strengths",
+        "Key Risks",
+        "Recommended Actions",
+        "Overall Assessment"
+    ]:
+
+        story.append(
+            Paragraph(
+                heading,
+                subheading_style
+            )
+        )
+
+        section_text = sections.get(
+            heading,
+            ""
+        )
+
+        items = extract_bullets(
+            section_text
+        )
+
+        if items:
+
+            for item in items:
+
+                story.append(
+                    Paragraph(
+                        f"• {escape(item)}",
+                        body_style
+                    )
+                )
+
+        else:
+
+            story.append(
+                Paragraph(
+                    escape(clean_text(section_text)),
+                    body_style
+                )
+            )
+
+    # --------------------------------------------------------
+    # CREWAI
+    # --------------------------------------------------------
+
+    story.append(
+        PageBreak()
+    )
+
+    story.append(
+        Paragraph(
+            "AI Retention & Enrollment Strategy",
+            heading_style
+        )
+    )
+
+    strategies = parse_crewai_strategy(
+        crewai_text
+    )
+
+    for strategy in strategies:
+
+        story.append(
+            Paragraph(
+                f"Strategy {strategy['number']}: "
+                f"{escape(strategy['title'])}",
+                subheading_style
+            )
+        )
+
+        for item in strategy["content"]:
+
+            if isinstance(item, dict):
+
+                story.append(
+                    Paragraph(
+                        escape(item["title"]),
+                        subheading_style
+                    )
+                )
+
+                for content in item["content"]:
+
+                    story.append(
+                        Paragraph(
+                            f"• {escape(content)}",
+                            body_style
+                        )
+                    )
+
+            else:
+
+                story.append(
+                    Paragraph(
+                        escape(item),
+                        body_style
+                    )
+                )
+
+    document.build(story)
+
+    buffer.seek(0)
+
+    return buffer.getvalue()
+
+
+# ============================================================
 # PAGE HEADER
 # ============================================================
 
 st.markdown("""
 <div class="main-header">
 
-<div class="main-title">
-🎓 Student Enrollment & Retention Strategy
-</div>
+    <div class="main-title">
+        🎓 Student Enrollment & Retention Strategy
+    </div>
 
-<div class="main-subtitle">
-Transform department-level student data into actionable academic,
-retention, and enrollment insights using Gemini + CrewAI.
-</div>
+    <div class="main-subtitle">
+        Transform department-level student data into actionable
+        academic, retention, and enrollment insights using
+        Gemini + CrewAI.
+    </div>
 
 </div>
 """, unsafe_allow_html=True)
@@ -326,10 +1222,10 @@ with st.sidebar:
 
     st.markdown("## 🎯 Analysis Center")
 
-    st.markdown("""
-    Upload your department CSV and select a department to generate
-    an AI-powered performance and retention strategy.
-    """)
+    st.write(
+        "Upload your department CSV and select a department "
+        "to generate an AI-powered performance and retention strategy."
+    )
 
     st.divider()
 
@@ -340,41 +1236,41 @@ with st.sidebar:
     **2.** Select department  
     **3.** Review performance  
     **4.** Generate AI insights  
-    **5.** Review retention strategy
+    **5.** Review retention strategy  
+    **6.** Download PDF report
     """)
 
     st.divider()
 
-    st.caption("Powered by Gemini + LangChain + CrewAI")
+    st.caption(
+        "Powered by Gemini + LangChain + CrewAI"
+    )
 
 
 # ============================================================
 # FILE UPLOAD
 # ============================================================
 
-st.markdown("### 📂 Upload Department Data")
+st.markdown(
+    '<div class="section-heading">📂 Upload Department Data</div>',
+    unsafe_allow_html=True
+)
 
 uploaded_file = st.file_uploader(
     "Upload a CSV file containing student department data",
     type=["csv"],
-    help="CSV should contain Department, GPA, Attendance and Engagement columns."
+    help=(
+        "CSV should contain Department, GPA, "
+        "Attendance and Engagement columns."
+    )
 )
 
 
 if uploaded_file is None:
 
-    st.markdown("""
-    <div class="info-card">
-
-    <strong>👋 Welcome!</strong><br><br>
-
-    Upload your department CSV file to begin the analysis.
-
-    The dashboard will calculate department-level performance
-    indicators and generate AI-powered recommendations.
-
-    </div>
-    """, unsafe_allow_html=True)
+    st.info(
+        "👋 Upload a CSV file to begin the analysis."
+    )
 
     st.stop()
 
@@ -389,12 +1285,15 @@ try:
 
 except Exception as e:
 
-    st.error(f"❌ Unable to read the CSV file: {e}")
+    st.error(
+        f"❌ Unable to read the CSV file: {e}"
+    )
+
     st.stop()
 
 
 # ============================================================
-# VALIDATE REQUIRED COLUMNS
+# VALIDATE COLUMNS
 # ============================================================
 
 required_columns = [
@@ -405,7 +1304,8 @@ required_columns = [
 ]
 
 missing_columns = [
-    column for column in required_columns
+    column
+    for column in required_columns
     if column not in df.columns
 ]
 
@@ -447,7 +1347,10 @@ df["Engagement_numeric"] = (
 # DATASET OVERVIEW
 # ============================================================
 
-st.markdown("### 📋 Dataset Overview")
+st.markdown(
+    '<div class="section-heading">📋 Dataset Overview</div>',
+    unsafe_allow_html=True
+)
 
 col1, col2, col3, col4 = st.columns(4)
 
@@ -489,11 +1392,18 @@ with st.expander("🔎 View Uploaded Data"):
 # DEPARTMENT SELECTION
 # ============================================================
 
-st.markdown("### 🏢 Department Analysis")
+st.markdown(
+    '<div class="section-heading">🏢 Department Analysis</div>',
+    unsafe_allow_html=True
+)
 
 department_name = st.selectbox(
     "Select a department",
-    sorted(df["Department"].dropna().unique()),
+    sorted(
+        df["Department"]
+        .dropna()
+        .unique()
+    ),
     help="Choose the department you want to analyze."
 )
 
@@ -512,7 +1422,7 @@ analyze = st.button(
 if analyze:
 
     # --------------------------------------------------------
-    # FILTER DEPARTMENT
+    # FILTER
     # --------------------------------------------------------
 
     dept_df = df[
@@ -543,19 +1453,19 @@ if analyze:
 
     st.markdown(
         f"""
-        <div class="section-card">
+        <div class="department-header">
 
-        <div class="department-badge">
-        🏢 {department_name}
-        </div>
+            <div class="department-badge">
+                🏢 {escape(str(department_name))}
+            </div>
 
-        <div class="section-title">
-        Department Performance Overview
-        </div>
+            <div class="department-title">
+                Department Performance Overview
+            </div>
 
-        <div class="section-description">
-        Analysis based on {student_count} student records.
-        </div>
+            <div class="department-description">
+                Analysis based on {student_count} student records.
+            </div>
 
         </div>
         """,
@@ -564,7 +1474,7 @@ if analyze:
 
 
     # --------------------------------------------------------
-    # METRIC CARDS
+    # METRICS
     # --------------------------------------------------------
 
     metric1, metric2, metric3, metric4 = st.columns(4)
@@ -575,19 +1485,18 @@ if analyze:
             f"""
             <div class="metric-card">
 
-            <div class="metric-title">
-            📚 Average GPA
-            </div>
+                <div class="metric-title">
+                    📚 Average GPA
+                </div>
 
-            <div class="metric-value">
-            {avg_gpa}
-            </div>
+                <div class="metric-value">
+                    {avg_gpa}
+                </div>
 
             </div>
             """,
             unsafe_allow_html=True
         )
-
 
     with metric2:
 
@@ -595,19 +1504,18 @@ if analyze:
             f"""
             <div class="metric-card">
 
-            <div class="metric-title">
-            📅 Attendance
-            </div>
+                <div class="metric-title">
+                    📅 Attendance
+                </div>
 
-            <div class="metric-value">
-            {avg_attendance}%
-            </div>
+                <div class="metric-value">
+                    {avg_attendance}%
+                </div>
 
             </div>
             """,
             unsafe_allow_html=True
         )
-
 
     with metric3:
 
@@ -615,19 +1523,18 @@ if analyze:
             f"""
             <div class="metric-card">
 
-            <div class="metric-title">
-            📈 Engagement
-            </div>
+                <div class="metric-title">
+                    📈 Engagement
+                </div>
 
-            <div class="metric-value">
-            {avg_engagement}/3
-            </div>
+                <div class="metric-value">
+                    {avg_engagement}/3
+                </div>
 
             </div>
             """,
             unsafe_allow_html=True
         )
-
 
     with metric4:
 
@@ -635,13 +1542,13 @@ if analyze:
             f"""
             <div class="metric-card">
 
-            <div class="metric-title">
-            👥 Students
-            </div>
+                <div class="metric-title">
+                    👥 Students
+                </div>
 
-            <div class="metric-value">
-            {student_count}
-            </div>
+                <div class="metric-value">
+                    {student_count}
+                </div>
 
             </div>
             """,
@@ -649,28 +1556,24 @@ if analyze:
         )
 
 
-    st.write("")
-
-
     # ========================================================
     # GEMINI ANALYSIS
     # ========================================================
 
-    st.markdown("""
-    <div class="section-card">
+    st.markdown(
+        '<div class="section-heading">🧠 AI Department Insights</div>',
+        unsafe_allow_html=True
+    )
 
-    <div class="section-title">
-    🧠 AI Department Insights
-    </div>
-
-    <div class="section-description">
-    Gemini analyzes the department's academic performance,
-    attendance, and engagement indicators.
-    </div>
-
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown(
+        """
+        <div class="section-description">
+            Gemini analyzes academic performance, attendance,
+            engagement and potential retention risks.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     try:
 
@@ -688,18 +1591,8 @@ if analyze:
             dept_summary = dept_result["text"]
 
 
-        st.markdown(
-            '<div class="section-card">',
-            unsafe_allow_html=True
-        )
-
-        st.markdown(
+        render_gemini_output(
             dept_summary
-        )
-
-        st.markdown(
-            '</div>',
-            unsafe_allow_html=True
         )
 
 
@@ -713,24 +1606,23 @@ if analyze:
 
 
     # ========================================================
-    # CREWAI RETENTION STRATEGY
+    # CREWAI STRATEGY
     # ========================================================
 
-    st.markdown("""
-    <div class="section-card">
+    st.markdown(
+        '<div class="section-heading">🤖 AI Retention & Enrollment Strategy</div>',
+        unsafe_allow_html=True
+    )
 
-    <div class="section-title">
-    🤖 AI Retention & Enrollment Strategy
-    </div>
-
-    <div class="section-description">
-    CrewAI generates department-specific strategies
-    for improving student retention and enrollment.
-    </div>
-
-    </div>
-    """, unsafe_allow_html=True)
-
+    st.markdown(
+        """
+        <div class="section-description">
+            CrewAI generates targeted strategies for improving
+            student retention and strengthening enrollment.
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     try:
 
@@ -747,18 +1639,8 @@ if analyze:
             )
 
 
-        st.markdown(
-            '<div class="section-card">',
-            unsafe_allow_html=True
-        )
-
-        st.markdown(
+        render_crewai_strategy(
             analysis
-        )
-
-        st.markdown(
-            '</div>',
-            unsafe_allow_html=True
         )
 
 
@@ -768,9 +1650,68 @@ if analyze:
             f"❌ CrewAI request failed: {e}"
         )
 
+        analysis = "CrewAI strategy could not be generated."
+
 
     # ========================================================
-    # SUCCESS MESSAGE
+    # PDF DOWNLOAD
+    # ========================================================
+
+    st.markdown(
+        '<div class="section-heading">📄 Download Report</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        <div class="download-card">
+
+            <div style="font-size:1.2rem;font-weight:700;">
+                Complete Department Report
+            </div>
+
+            <div style="color:#667085;margin-top:0.4rem;">
+                Download the department metrics, Gemini insights
+                and CrewAI retention strategy as a PDF.
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+    try:
+
+        pdf_data = build_pdf(
+            department_name=department_name,
+            student_count=student_count,
+            avg_gpa=avg_gpa,
+            avg_attendance=avg_attendance,
+            avg_engagement=avg_engagement,
+            gemini_text=dept_summary,
+            crewai_text=analysis
+        )
+
+        st.download_button(
+            label="⬇️ Download Complete Report (PDF)",
+            data=pdf_data,
+            file_name=(
+                f"{department_name}_Retention_Strategy_Report.pdf"
+            ),
+            mime="application/pdf",
+            use_container_width=True
+        )
+
+    except Exception as e:
+
+        st.error(
+            f"❌ Could not generate PDF: {e}"
+        )
+
+
+    # ========================================================
+    # SUCCESS
     # ========================================================
 
     st.success(
@@ -785,11 +1726,9 @@ if analyze:
 st.markdown("""
 <div class="footer">
 
-Student Enrollment & Retention Strategy Dashboard  
-<br>
-Gemini • LangChain • CrewAI • Streamlit
+    Student Enrollment & Retention Strategy Dashboard
+    <br><br>
+    Gemini • LangChain • CrewAI • Streamlit
 
 </div>
 """, unsafe_allow_html=True)
-
-
