@@ -5,6 +5,7 @@ import streamlit as st
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain_groq import ChatGroq
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # ======================================
 # Clear previous Streamlit session (prevents old widgets showing)
@@ -16,7 +17,8 @@ st.session_state.clear()
 # ======================================
 # ✅ Load from Streamlit Secrets (secure)
 os.environ["CREWAI_BEARER_TOKEN"] = st.secrets["CREWAI_BEARER_TOKEN"]
-os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
+# os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
 # CrewAI API
 BASE_URL = "https://enrollment-retention-management-crew-v1-c21-82c3d780.crewai.com"
@@ -30,7 +32,11 @@ HEADERS = {
 # ======================================
 # Initialize Groq LLM
 # ======================================
-llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.2)
+# llm = ChatGroq(model="llama-3.3-70b-versatile", temperature=0.2)
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    temperature=0.2
+)
 
 # ======================================
 # Department Prompt Template
