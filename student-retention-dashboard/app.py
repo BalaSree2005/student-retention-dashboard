@@ -1,4 +1,3 @@
-```python
 import os
 import time
 import pandas as pd
@@ -792,5 +791,5 @@ Gemini • LangChain • CrewAI • Streamlit
 
 </div>
 """, unsafe_allow_html=True)
-```
+
 
