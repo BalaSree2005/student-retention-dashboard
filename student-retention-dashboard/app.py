@@ -1317,6 +1317,10 @@ def build_pdf(
 
     styles = getSampleStyleSheet()
 
+    # --------------------------------------------------------
+    # PDF STYLES
+    # --------------------------------------------------------
+
     title_style = ParagraphStyle(
         "ReportTitle",
         parent=styles["Title"],
@@ -1363,9 +1367,9 @@ def build_pdf(
 
     story = []
 
-    # --------------------------------------------------------
+    # ========================================================
     # TITLE
-    # --------------------------------------------------------
+    # ========================================================
 
     story.append(
         Paragraph(
@@ -1382,9 +1386,9 @@ def build_pdf(
         )
     )
 
-    # --------------------------------------------------------
-    # METRICS
-    # --------------------------------------------------------
+    # ========================================================
+    # DEPARTMENT METRICS
+    # ========================================================
 
     story.append(
         Paragraph(
@@ -1465,9 +1469,9 @@ def build_pdf(
 
     story.append(metric_table)
 
-    # --------------------------------------------------------
+    # ========================================================
     # GEMINI SECTION
-    # --------------------------------------------------------
+    # ========================================================
 
     story.append(
         Paragraph(
@@ -1509,129 +1513,252 @@ def build_pdf(
 
                 story.append(
                     Paragraph(
-                        f"• {escape(item)}",
+                        f"• {escape(str(item))}",
                         body_style
                     )
                 )
 
         else:
 
+            cleaned_section = clean_text(
+                section_text
+            )
+
+            if cleaned_section:
+
+                story.append(
+                    Paragraph(
+                        escape(
+                            str(cleaned_section)
+                        ),
+                        body_style
+                    )
+                )
+
+            else:
+
+                story.append(
+                    Paragraph(
+                        "No information available.",
+                        body_style
+                    )
+                )
+
+    # ========================================================
+    # CREWAI STRATEGY
+    # ========================================================
+
+    story.append(
+        PageBreak()
+    )
+
+    story.append(
+        Paragraph(
+            "AI Retention & Enrollment Strategy",
+            heading_style
+        )
+    )
+
+    strategies = parse_crewai_strategy(
+        crewai_text
+    )
+
+    # --------------------------------------------------------
+    # PARSED CREWAI STRATEGY
+    # --------------------------------------------------------
+
+    if strategies:
+
+        for strategy in strategies:
+
+            # -----------------------------------------------
+            # MAJOR STRATEGY
+            # -----------------------------------------------
+
+            strategy_number = strategy.get(
+                "number",
+                ""
+            )
+
+            strategy_title = strategy.get(
+                "title",
+                "Retention Strategy"
+            )
+
             story.append(
                 Paragraph(
-                    escape(
-                        clean_text(section_text)
-                    ),
-                    body_style
+                    f"Strategy "
+                    f"{escape(str(strategy_number))}: "
+                    f"{escape(str(strategy_title))}",
+                    subheading_style
                 )
             )
 
-    # --------------------------------------------------------
-    # CREWAI
-    # --------------------------------------------------------
+            # -----------------------------------------------
+            # TARGETS / SUBSECTIONS
+            # -----------------------------------------------
 
-           # --------------------------------------------------------
-        # CREWAI
-        # --------------------------------------------------------
-        
-        story.append(
-            PageBreak()
-        )
-        
-        story.append(
-            Paragraph(
-                "AI Retention & Enrollment Strategy",
-                heading_style
-            )
-        )
-        
-        strategies = parse_crewai_strategy(
-            crewai_text
-        )
-        
-        if strategies:
-        
-            for strategy in strategies:
-        
-                # -----------------------------------------------
-                # MAJOR STRATEGY
-                # -----------------------------------------------
-        
+            for target in strategy.get(
+                "targets",
+                []
+            ):
+
+                target_title = target.get(
+                    "title",
+                    "Recommended Approach"
+                )
+
                 story.append(
                     Paragraph(
-                        f"Strategy {escape(str(strategy['number']))}: "
-                        f"{escape(str(strategy['title']))}",
+                        escape(
+                            str(target_title)
+                        ),
                         subheading_style
                     )
                 )
-        
-                # -----------------------------------------------
-                # TARGETS / SUBSECTIONS
-                # -----------------------------------------------
-        
-                for target in strategy.get("targets", []):
-        
-                    target_title = target.get(
-                        "title",
-                        "Recommended Approach"
+
+                # -------------------------------------------
+                # DETAILS
+                # -------------------------------------------
+
+                for detail in target.get(
+                    "details",
+                    []
+                ):
+
+                    label = detail.get(
+                        "label",
+                        "Point"
                     )
-        
+
+                    content = detail.get(
+                        "text",
+                        ""
+                    )
+
+                    if not content:
+                        continue
+
                     story.append(
                         Paragraph(
-                            escape(str(target_title)),
-                            subheading_style
+                            f"<b>{escape(str(label))}:</b> "
+                            f"{escape(str(content))}",
+                            body_style
                         )
                     )
-        
-                    # -------------------------------------------
-                    # DETAILS
-                    # -------------------------------------------
-        
-                    for detail in target.get("details", []):
-        
-                        label = detail.get(
-                            "label",
-                            "Point"
+
+    # --------------------------------------------------------
+    # FALLBACK IF CREWAI PARSING FAILS
+    # --------------------------------------------------------
+
+    else:
+
+        cleaned_crewai = clean_text(
+            crewai_text
+        )
+
+        if cleaned_crewai:
+
+            # Split into lines so the PDF is easier to read
+            for line in str(
+                cleaned_crewai
+            ).splitlines():
+
+                line = line.strip()
+
+                if not line:
+                    continue
+
+                # Remove markdown formatting
+                line = re.sub(
+                    r"\*\*(.*?)\*\*",
+                    r"\1",
+                    line
+                )
+
+                line = re.sub(
+                    r"__(.*?)__",
+                    r"\1",
+                    line
+                )
+
+                line = re.sub(
+                    r"`(.*?)`",
+                    r"\1",
+                    line
+                )
+
+                # Remove markdown heading symbols
+                line = re.sub(
+                    r"^#+\s*",
+                    "",
+                    line
+                )
+
+                # Handle bullet points
+                if line.startswith("-"):
+
+                    line = line[1:].strip()
+
+                    story.append(
+                        Paragraph(
+                            f"• {escape(str(line))}",
+                            body_style
                         )
-        
-                        content = detail.get(
-                            "text",
-                            ""
+                    )
+
+                elif line.startswith("•"):
+
+                    story.append(
+                        Paragraph(
+                            escape(str(line)),
+                            body_style
                         )
-        
-                        if not content:
-                            continue
-        
-                        # Strategy / Implementation /
-                        # Expected Outcome
-                        story.append(
-                            Paragraph(
-                                f"<b>{escape(str(label))}:</b> "
-                                f"{escape(str(content))}",
-                                body_style
-                            )
+                    )
+
+                else:
+
+                    story.append(
+                        Paragraph(
+                            escape(str(line)),
+                            body_style
                         )
-        
+                    )
+
         else:
-        
-            # -----------------------------------------------
-            # FALLBACK
-            # -----------------------------------------------
-        
+
             story.append(
                 Paragraph(
-                    escape(
-                        clean_text(
-                            crewai_text
-                        )
-                    ),
+                    "No CrewAI retention strategy "
+                    "was available.",
                     body_style
                 )
             )
-            document.build(story)
-        
-            buffer.seek(0)
-        
-            return buffer.getvalue()
+
+    # ========================================================
+    # BUILD PDF
+    # ========================================================
+
+    # IMPORTANT:
+    # These lines MUST be outside the if/else above.
+    # Otherwise the function can return None.
+
+    document.build(
+        story
+    )
+
+    buffer.seek(0)
+
+    pdf_data = buffer.getvalue()
+
+    # Safety check
+    if not pdf_data:
+
+        raise ValueError(
+            "PDF was generated but contains no data."
+        )
+
+    return pdf_data
 
 
 # ============================================================
