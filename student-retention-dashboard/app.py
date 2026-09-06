@@ -1122,7 +1122,11 @@ def build_pdf(
 # PAGE HEADER
 # ============================================================
 
-st.markdown("""
+# =========================
+# MAIN HEADER
+# =========================
+
+st.html("""
 <div class="main-header">
 
     <div class="main-title">
@@ -1136,8 +1140,7 @@ st.markdown("""
     </div>
 
 </div>
-""", unsafe_allow_html=True)
-
+""")
 
 # ============================================================
 # SIDEBAR
