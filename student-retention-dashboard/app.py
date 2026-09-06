@@ -1579,7 +1579,7 @@ else:
 
     buffer.seek(0)
 
-    return buffer.getvalue()
+return buffer.getvalue()
 
 
 # ============================================================
