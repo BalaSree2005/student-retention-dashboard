@@ -856,15 +856,17 @@ def render_gemini_output(text):
 # CREWAI PARSING
 # ============================================================
 
+# ============================================================
+# CREWAI PARSING
+# ============================================================
+
 def parse_crewai_strategy(text):
     """
-    Parse CrewAI's enrollment/retention strategy into:
-    
-    Major Strategy
+    Parse CrewAI output into:
+
+    Strategy
         -> Target / Subsection
-            -> Strategy
-            -> Implementation
-            -> Expected Outcome
+            -> Detail / Point
     """
 
     strategies = []
@@ -873,16 +875,17 @@ def parse_crewai_strategy(text):
     current_target = None
     current_detail = None
 
-    lines = str(text).splitlines()
-
-    for raw_line in lines:
+    for raw_line in str(text).splitlines():
 
         line = raw_line.strip()
 
         if not line:
             continue
 
-        # Remove markdown formatting
+        # ----------------------------------------------------
+        # REMOVE MARKDOWN FORMATTING
+        # ----------------------------------------------------
+
         line = re.sub(
             r"\*\*(.*?)\*\*",
             r"\1",
@@ -895,17 +898,23 @@ def parse_crewai_strategy(text):
             line
         )
 
+        line = re.sub(
+            r"`(.*?)`",
+            r"\1",
+            line
+        )
+
         line = line.strip()
 
         # ----------------------------------------------------
-        # Ignore separators
+        # IGNORE SEPARATORS
         # ----------------------------------------------------
 
         if line in ["---", "***", "___"]:
             continue
 
         # ----------------------------------------------------
-        # Remove markdown heading symbols
+        # REMOVE HEADING SYMBOLS
         # ----------------------------------------------------
 
         clean = re.sub(
@@ -915,7 +924,7 @@ def parse_crewai_strategy(text):
         ).strip()
 
         # ----------------------------------------------------
-        # Ignore report title
+        # IGNORE REPORT TITLE / OBJECTIVE
         # ----------------------------------------------------
 
         if clean.lower().startswith(
@@ -930,8 +939,10 @@ def parse_crewai_strategy(text):
 
         # ----------------------------------------------------
         # MAJOR STRATEGY
+        #
         # Example:
         # 1. Recruitment Strategies Segmented by GPA Levels
+        # 2. Targeting High-Engagement Student Populations
         # ----------------------------------------------------
 
         major_match = re.match(
@@ -941,7 +952,6 @@ def parse_crewai_strategy(text):
 
         if major_match:
 
-            # Save previous strategy
             if current_strategy is not None:
                 strategies.append(
                     current_strategy
@@ -959,29 +969,79 @@ def parse_crewai_strategy(text):
             continue
 
         # ----------------------------------------------------
-        # TARGET / SUBSECTION
+        # REMOVE BULLET SYMBOL FOR DETECTION
+        # ----------------------------------------------------
+
+        is_bullet = bool(
+            re.match(
+                r"^[-•*]\s+",
+                clean
+            )
+        )
+
+        bullet_text = re.sub(
+            r"^[-•*]\s+",
+            "",
+            clean
+        ).strip()
+
+        # ----------------------------------------------------
+        # LETTERED SUBSECTIONS
         #
-        # Examples:
-        # High GPA Target (3.5 and above)
-        # Moderate GPA Target (2.8 - 3.4)
-        # Low GPA Target (Below 2.8)
-        # Engagement Strategy
-        # Attendance Initiative
-        # Partnership Strategy
-        # Successful Segments to Target
-        # At-Risk Segments to Avoid
+        # Example:
+        # a. High GPA (3.5 - 4.0)
+        # b. Mid GPA (3.0 - 3.49)
+        # c. Low GPA (Below 3.0)
+        # ----------------------------------------------------
+
+        letter_target = re.match(
+            r"^[a-zA-Z]\.\s+(.+)$",
+            clean
+        )
+
+        if letter_target and current_strategy:
+
+            current_target = {
+                "title": letter_target.group(1).strip(),
+                "details": []
+            }
+
+            current_strategy["targets"].append(
+                current_target
+            )
+
+            current_detail = None
+
+            continue
+
+        # ----------------------------------------------------
+        # KNOWN TARGET / SUBSECTION HEADINGS
         # ----------------------------------------------------
 
         target_patterns = [
-            r"^High GPA Target.*",
-            r"^Moderate GPA Target.*",
-            r"^Low GPA Target.*",
+            r"^High GPA.*",
+            r"^Mid GPA.*",
+            r"^Medium GPA.*",
+            r"^Moderate GPA.*",
+            r"^Low GPA.*",
+
             r"^High[- ]Engagement.*",
+            r"^Medium[- ]Engagement.*",
+            r"^Moderate[- ]Engagement.*",
+            r"^Low[- ]Engagement.*",
+
             r"^Engagement Strategy.*",
             r"^Attendance Initiative.*",
+            r"^Attendance Strategy.*",
+
             r"^Partnership Strategy.*",
-            r"^Successful Segments to Target.*",
-            r"^At-Risk Segments to Avoid.*"
+            r"^Partnership Initiative.*",
+
+            r"^Successful Segments.*",
+            r"^At-Risk Segments.*",
+            r"^Demographic Profiles.*",
+
+            r"^Conclusion:?$"
         ]
 
         is_target = any(
@@ -993,16 +1053,18 @@ def parse_crewai_strategy(text):
             for pattern in target_patterns
         )
 
-        if is_target and current_strategy:
+        if (
+            is_target
+            and current_strategy
+            and not is_bullet
+        ):
 
             current_target = {
-                "title": clean,
+                "title": clean.rstrip(":"),
                 "details": []
             }
 
-            current_strategy[
-                "targets"
-            ].append(
+            current_strategy["targets"].append(
                 current_target
             )
 
@@ -1011,69 +1073,33 @@ def parse_crewai_strategy(text):
             continue
 
         # ----------------------------------------------------
-        # GENERIC SUBHEADING
+        # DETAIL WITH LABEL
         #
-        # This catches headings that CrewAI may generate
-        # that aren't explicitly listed above.
-        # ----------------------------------------------------
-
-        if (
-            current_strategy
-            and not clean.startswith("-")
-            and not re.match(
-                r"^(Strategy|Implementation|Expected Outcome):",
-                clean,
-                re.IGNORECASE
-            )
-            and len(clean) < 120
-        ):
-
-            # Treat short standalone text as a subsection
-            if (
-                current_target is None
-                or (
-                    current_target
-                    and current_target["details"]
-                    and current_detail is not None
-                )
-            ):
-
-                current_target = {
-                    "title": clean,
-                    "details": []
-                }
-
-                current_strategy[
-                    "targets"
-                ].append(
-                    current_target
-                )
-
-                current_detail = None
-
-                continue
-
-        # ----------------------------------------------------
-        # DETAIL LINES
+        # Example:
+        # Strategy: ...
+        # Implementation: ...
+        # Expected Outcome: ...
         #
-        # Strategy:
-        # Implementation:
-        # Expected Outcome:
+        # Also supports:
+        # Targeted Outreach Campaign: ...
+        # Incentives: ...
+        # Expected Outcomes: ...
         # ----------------------------------------------------
 
         detail_match = re.match(
-            r"^(Strategy|Implementation|Expected Outcome)\s*:\s*(.*)$",
-            clean,
-            re.IGNORECASE
+            r"^([^:]{2,80}):\s*(.*)$",
+            bullet_text
         )
 
-        if detail_match:
+        if (
+            detail_match
+            and current_strategy
+        ):
 
             label = detail_match.group(1).strip()
-
             content = detail_match.group(2).strip()
 
-            # Create target if missing
+            # Create target automatically if needed
             if current_target is None:
 
                 current_target = {
@@ -1081,9 +1107,7 @@ def parse_crewai_strategy(text):
                     "details": []
                 }
 
-                current_strategy[
-                    "targets"
-                ].append(
+                current_strategy["targets"].append(
                     current_target
                 )
 
@@ -1092,9 +1116,7 @@ def parse_crewai_strategy(text):
                 "text": content
             }
 
-            current_target[
-                "details"
-            ].append(
+            current_target["details"].append(
                 detail
             )
 
@@ -1103,14 +1125,43 @@ def parse_crewai_strategy(text):
             continue
 
         # ----------------------------------------------------
-        # BULLET CONTINUATION
+        # NORMAL BULLET / POINT
+        #
+        # This is important for Strategies 2, 3 and 4.
+        # If they don't have a subsection heading,
+        # automatically create "Recommended Approach".
         # ----------------------------------------------------
 
-        if clean.startswith("-"):
+        if is_bullet:
 
-            clean = clean.lstrip(
-                "- "
-            ).strip()
+            if current_strategy is None:
+                continue
+
+            if current_target is None:
+
+                current_target = {
+                    "title": "Recommended Approach",
+                    "details": []
+                }
+
+                current_strategy["targets"].append(
+                    current_target
+                )
+
+            current_target["details"].append(
+                {
+                    "label": "Point",
+                    "text": bullet_text
+                }
+            )
+
+            current_detail = None
+
+            continue
+
+        # ----------------------------------------------------
+        # CONTINUATION OF PREVIOUS DETAIL
+        # ----------------------------------------------------
 
         if current_detail:
 
@@ -1124,15 +1175,29 @@ def parse_crewai_strategy(text):
 
                 current_detail["text"] = clean
 
-        elif current_target:
+            continue
 
-            # For bullet lists such as:
-            # - High academic achievers
-            # - Students involved in clubs
+        # ----------------------------------------------------
+        # STANDALONE TEXT
+        #
+        # If a strategy has text but no target,
+        # create a default target.
+        # ----------------------------------------------------
 
-            current_target[
-                "details"
-            ].append(
+        if current_strategy:
+
+            if current_target is None:
+
+                current_target = {
+                    "title": "Recommended Approach",
+                    "details": []
+                }
+
+                current_strategy["targets"].append(
+                    current_target
+                )
+
+            current_target["details"].append(
                 {
                     "label": "Point",
                     "text": clean
@@ -1140,7 +1205,7 @@ def parse_crewai_strategy(text):
             )
 
     # --------------------------------------------------------
-    # Save final strategy
+    # SAVE FINAL STRATEGY
     # --------------------------------------------------------
 
     if current_strategy is not None:
@@ -1158,9 +1223,7 @@ def parse_crewai_strategy(text):
 
 def render_crewai_strategy(text):
 
-    strategies = parse_crewai_strategy(
-        text
-    )
+    strategies = parse_crewai_strategy(text)
 
     # --------------------------------------------------------
     # FALLBACK
@@ -1173,9 +1236,7 @@ def render_crewai_strategy(text):
             <div class="strategy-card">
 
                 <div class="strategy-text">
-                    {escape(
-                        clean_text(text)
-                    )}
+                    {escape(clean_text(text))}
                 </div>
 
             </div>
@@ -1184,101 +1245,102 @@ def render_crewai_strategy(text):
 
         return
 
-
     # --------------------------------------------------------
-    # RENDER EACH MAJOR STRATEGY
+    # RENDER EACH STRATEGY
     # --------------------------------------------------------
 
     for strategy in strategies:
+
+        strategy_number = strategy.get(
+            "number",
+            ""
+        )
+
+        strategy_title = strategy.get(
+            "title",
+            "Retention Strategy"
+        )
 
         strategy_html = f"""
         <div class="strategy-card">
 
             <div class="strategy-number">
-                STRATEGY {escape(
-                    strategy["number"]
-                )}
+                STRATEGY {escape(str(strategy_number))}
             </div>
 
             <div class="strategy-title">
-                {escape(
-                    strategy["title"]
-                )}
+                {escape(str(strategy_title))}
             </div>
         """
 
         # ----------------------------------------------------
-        # RENDER TARGETS
+        # TARGETS
         # ----------------------------------------------------
 
-        for target in strategy["targets"]:
+        for target in strategy.get(
+            "targets",
+            []
+        ):
+
+            target_title = target.get(
+                "title",
+                "Recommended Approach"
+            )
 
             strategy_html += f"""
                 <div class="strategy-subtitle">
-                    {escape(
-                        target["title"]
-                    )}
+                    {escape(str(target_title))}
                 </div>
             """
 
             # ------------------------------------------------
-            # RENDER DETAILS
+            # DETAILS
             # ------------------------------------------------
 
-            for detail in target["details"]:
+            for detail in target.get(
+                "details",
+                []
+            ):
 
-                label = detail["label"]
-                content = detail["text"]
+                label = detail.get(
+                    "label",
+                    "Point"
+                )
 
-                # Different styling for actual actions
-                if label.lower() == "strategy":
+                content = detail.get(
+                    "text",
+                    ""
+                )
 
-                    strategy_html += f"""
-                        <div class="strategy-text">
+                if not content:
+                    continue
 
-                            <strong>
-                                🎯 Strategy:
-                            </strong>
+                # --------------------------------------------
+                # POINT WITHOUT LABEL
+                # --------------------------------------------
 
-                            {escape(content)}
-
-                        </div>
-                    """
-
-                elif label.lower() == "implementation":
-
-                    strategy_html += f"""
-                        <div class="strategy-text">
-
-                            <strong>
-                                ⚙️ Implementation:
-                            </strong>
-
-                            {escape(content)}
-
-                        </div>
-                    """
-
-                elif label.lower() == "expected outcome":
+                if label.lower() == "point":
 
                     strategy_html += f"""
                         <div class="strategy-text">
-
-                            <strong>
-                                📈 Expected Outcome:
-                            </strong>
-
-                            {escape(content)}
-
+                            • {escape(str(content))}
                         </div>
                     """
+
+                # --------------------------------------------
+                # LABELED DETAIL
+                # --------------------------------------------
 
                 else:
 
                     strategy_html += f"""
                         <div class="strategy-text">
 
-                            • {escape(content)}
+                            <strong>
+                                {escape(str(label))}:
+                            </strong>
+
+                            {escape(str(content))}
 
                         </div>
                     """
@@ -1290,6 +1352,9 @@ def render_crewai_strategy(text):
         st.html(
             strategy_html
         )
+
+
+
 
 # ============================================================
 # PDF GENERATION
